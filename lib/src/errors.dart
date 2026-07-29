@@ -560,6 +560,43 @@ class SemanticError extends IssueType {
               'minimum is equal to the thickness maximum.',
           Severity.Information);
 
+  static final SemanticError khrXmpJsonLdDuplicateNamespace = SemanticError._(
+      'KHR_XMP_JSON_LD_DUPLICATE_NAMESPACE',
+      (args) => 'Namespace URI ${_q(args[0])} is mapped by multiple prefixes.');
+
+  static final SemanticError khrXmpJsonLdInvalidContextValue = SemanticError._(
+      'KHR_XMP_JSON_LD_INVALID_CONTEXT_VALUE',
+      (args) =>
+          'JSON-LD context value ${_q(args[0])} must be an absolute URI.');
+
+  static final SemanticError khrXmpJsonLdInvalidCompactIri = SemanticError._(
+      'KHR_XMP_JSON_LD_INVALID_COMPACT_IRI',
+      (args) => 'Metadata property ${_q(args[0])} is not a compact IRI.');
+
+  static final SemanticError khrXmpJsonLdUndefinedPrefix = SemanticError._(
+      'KHR_XMP_JSON_LD_UNDEFINED_PREFIX',
+      (args) => 'Compact IRI uses undefined prefix ${_q(args[0])}.');
+
+  static final SemanticError khrXmpJsonLdLocalContext = SemanticError._(
+      'KHR_XMP_JSON_LD_LOCAL_CONTEXT',
+      (args) => 'Local JSON-LD contexts are not allowed.');
+
+  static final SemanticError khrXmpJsonLdUnwrappedArray = SemanticError._(
+      'KHR_XMP_JSON_LD_UNWRAPPED_ARRAY',
+      (args) => 'XMP arrays must be wrapped by @list or @set.');
+
+  static final SemanticError khrXmpJsonLdInvalidValueObject = SemanticError._(
+      'KHR_XMP_JSON_LD_INVALID_VALUE_OBJECT',
+      (args) => 'JSON-LD value object is not a permitted language value.');
+
+  static final SemanticError khrXmpJsonLdInvalidLanguageAlternative =
+      SemanticError._('KHR_XMP_JSON_LD_INVALID_LANGUAGE_ALTERNATIVE',
+          (args) => 'rdf:Alt members must use rdf:_N property names.');
+
+  static final SemanticError khrXmpJsonLdInvalidLanguageTag = SemanticError._(
+      'KHR_XMP_JSON_LD_INVALID_LANGUAGE_TAG',
+      (args) => 'Language tag ${_q(args[0])} must be a lowercase BCP 47 tag.');
+
   SemanticError._(String type, ErrorFunction message,
       [Severity severity = Severity.Error])
       : super(type, message, severity);

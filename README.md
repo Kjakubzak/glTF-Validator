@@ -52,6 +52,7 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
   - KHR_materials_volume
   - KHR_mesh_quantization
   - KHR_texture_transform
+  - KHR_xmp_json_ld
 - [Full list of detectable issues](ISSUES.md).
 
 ## Usage

@@ -263,6 +263,20 @@ class Gltf extends GltfProperty {
     linkCollection(animations, Animation);
     linkCollection(scenes, Scene);
 
+    final assetExtensions = context.linkableExtensions[Asset];
+    if (assetExtensions != null) {
+      final oldPath = context.path.toList(growable: false);
+      for (final entry in assetExtensions) {
+        context.path
+          ..clear()
+          ..addAll(entry.path);
+        entry.object.link(gltf, context);
+      }
+      context.path
+        ..clear()
+        ..addAll(oldPath);
+    }
+
     // Link root-level extensions
     if (extensions.isNotEmpty) {
       context.path.add(EXTENSIONS);

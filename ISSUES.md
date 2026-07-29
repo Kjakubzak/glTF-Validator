@@ -52,6 +52,15 @@
 |KHR_MATERIALS_IRIDESCENCE_THICKNESS_TEXTURE_UNUSED|Thickness texture has no effect when the thickness minimum is equal to the thickness maximum.|Information|
 |KHR_MATERIALS_VOLUME_DOUBLE_SIDED|The volume extension should not be used with double-sided materials.|Warning|
 |KHR_MATERIALS_VOLUME_NO_TRANSMISSION|The volume extension needs to be combined with an extension that allows light to transmit through the surface.|Warning|
+|KHR_XMP_JSON_LD_DUPLICATE_NAMESPACE|Namespace URI '`%1`' is mapped by multiple prefixes.|Error|
+|KHR_XMP_JSON_LD_INVALID_COMPACT_IRI|Metadata property '`%1`' is not a compact IRI.|Error|
+|KHR_XMP_JSON_LD_INVALID_CONTEXT_VALUE|JSON-LD context value '`%1`' must be an absolute URI.|Error|
+|KHR_XMP_JSON_LD_INVALID_LANGUAGE_ALTERNATIVE|rdf:Alt members must use rdf:_N property names.|Error|
+|KHR_XMP_JSON_LD_INVALID_LANGUAGE_TAG|Language tag '`%1`' must be a lowercase BCP 47 tag.|Error|
+|KHR_XMP_JSON_LD_INVALID_VALUE_OBJECT|JSON-LD value object is not a permitted language value.|Error|
+|KHR_XMP_JSON_LD_LOCAL_CONTEXT|Local JSON-LD contexts are not allowed.|Error|
+|KHR_XMP_JSON_LD_UNDEFINED_PREFIX|Compact IRI uses undefined prefix '`%1`'.|Error|
+|KHR_XMP_JSON_LD_UNWRAPPED_ARRAY|XMP arrays must be wrapped by @list or @set.|Error|
 |MATERIAL_ALPHA_CUTOFF_INVALID_MODE|Alpha cutoff is supported only for 'MASK' alpha mode.|Warning|
 |MESH_INVALID_WEIGHTS_COUNT|The length of weights array (`%1`) does not match the number of morph targets (`%2`).|Error|
 |MESH_PRIMITIVES_UNEQUAL_TARGETS_COUNT|All primitives must have the same number of morph targets.|Error|
