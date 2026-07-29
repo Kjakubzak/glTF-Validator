@@ -110,6 +110,9 @@
 |IMAGE_BUFFER_VIEW_WITH_BYTESTRIDE|bufferView.byteStride must not be defined for buffer views containing image data.|Error|
 |INCOMPLETE_EXTENSION_SUPPORT|Validation support for this extension is incomplete; the asset may have undetected issues.|Information|
 |INVALID_IBM_ACCESSOR_COUNT|IBM accessor must have at least `%1` elements. Found `%2`.|Error|
+|KHR_ANIMATION_POINTER_INVALID_ACCESSOR|Output accessor format '`%1`' is incompatible with animation pointer type '`%2`'.|Error|
+|KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
+|KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
 |KHR_MATERIALS_VARIANTS_NON_UNIQUE_VARIANT|This variant is used more than once for this mesh primitive.|Error|
 |MESH_PRIMITIVE_ACCESSOR_UNALIGNED|Vertex attribute data must be aligned to 4-byte boundaries.|Error|
 |MESH_PRIMITIVE_ACCESSOR_WITHOUT_BYTESTRIDE|bufferView.byteStride must be defined when two or more accessors use the same buffer view.|Error|
@@ -176,6 +179,7 @@
 |IMAGE_NPOT_DIMENSIONS|Image has non-power-of-two dimensions: `%1`x`%2`.|Information|
 |IMAGE_UNEXPECTED_EOS|Unexpected end of image stream.|Error|
 |IMAGE_UNRECOGNIZED_FORMAT|Image format not recognized.|Warning|
+|KHR_ANIMATION_POINTER_VALUE_OUT_OF_RANGE|Animation pointer output element `%1`, component `%2` contains an invalid value: `%3`.|Error|
 |URI_GLB|URI is used in GLB container.|Information|
 ## GlbError
 | Code | Message | Severity |

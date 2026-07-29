@@ -75,6 +75,7 @@ class Gltf extends GltfProperty {
       : super(extensions, extras);
 
   factory Gltf.fromMap(Map<String, Object> map, Context context) {
+    context.rootJson = map;
     void resetPath() => context.path.clear();
 
     resetPath();

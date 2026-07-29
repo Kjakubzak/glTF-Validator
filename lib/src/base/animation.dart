@@ -333,6 +333,7 @@ class AnimationChannelTarget extends GltfProperty {
       : super(extensions, extras);
 
   Node get node => _node;
+  int get nodeIndex => _nodeIndex;
 
   static AnimationChannelTarget fromMap(
       Map<String, Object> map, Context context) {

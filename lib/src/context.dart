@@ -48,6 +48,7 @@ class Context {
 
   final ValidationOptions options;
   final List<String> path = <String>[];
+  Map<String, Object> rootJson;
 
   static final _extNameFormat = RegExp(r'^([A-Z0-9]+)_[A-Za-z0-9_]+$');
 
@@ -70,6 +71,9 @@ class Context {
 
   final Map<Accessor, List<ElementChecker>> accessorElementCheckers =
       <Accessor, List<ElementChecker>>{};
+
+  final List<AnimationPointerProperty> animationPointerProperties =
+      <AnimationPointerProperty>[];
 
   final Map<Object, Object> owners = <Object, Object>{};
 

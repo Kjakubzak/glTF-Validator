@@ -29,6 +29,7 @@ class Mesh extends GltfChildOfRootProperty {
   bool _weightsUsed = false;
 
   bool get areWeightsUsed => _weightsUsed;
+  int get morphTargetsCount => primitives?.first?.targets?.length ?? 0;
 
   Mesh._(this.primitives, this.weights, String name,
       Map<String, Object> extensions, Object extras)

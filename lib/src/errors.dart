@@ -128,6 +128,11 @@ class DataError extends IssueType {
       (args) => 'Animation input accessor element at index ${args[0]} '
           'is less than or equal to previous: ${args[1]} <= ${args[2]}.');
 
+  static final DataError khrAnimationPointerValueOutOfRange = DataError._(
+      'KHR_ANIMATION_POINTER_VALUE_OUT_OF_RANGE',
+      (args) => 'Animation pointer output element ${args[0]}, component '
+          '${args[1]} contains an invalid value: ${args[2]}.');
+
   static final DataError accessorSparseIndicesNonIncreasing = DataError._(
       'ACCESSOR_SPARSE_INDICES_NON_INCREASING',
       (args) => 'Accessor sparse indices element at index ${args[0]} '
@@ -707,6 +712,21 @@ class LinkError extends IssueType {
       (args) => 'Validation support for this extension is incomplete; '
           'the asset may have undetected issues.',
       Severity.Information);
+
+  static final LinkError khrAnimationPointerUnresolved = LinkError._(
+      'KHR_ANIMATION_POINTER_UNRESOLVED',
+      (args) => 'Animation pointer does not resolve to a mutable property: '
+          '${_q(args[0])}.');
+
+  static final LinkError khrAnimationPointerInvalidAccessor = LinkError._(
+      'KHR_ANIMATION_POINTER_INVALID_ACCESSOR',
+      (args) => 'Output accessor format ${_q(args[0])} is incompatible with '
+          'animation pointer type ${_q(args[1])}.');
+
+  static final LinkError khrAnimationPointerInvalidInterpolation = LinkError._(
+      'KHR_ANIMATION_POINTER_INVALID_INTERPOLATION',
+      (args) => 'Animation pointer target requires STEP interpolation. '
+          'Found ${_q(args[0])}.');
 
   static final LinkError invalidIbmAccessorCount = LinkError._(
       'INVALID_IBM_ACCESSOR_COUNT',

@@ -1,11 +1,11 @@
 {
     "uri": "test/ext/KHR_animation_pointer/data/animation/channel/target/invalid_channel_target_path.gltf",
     "mimeType": "model/gltf+json",
-    "validatorVersion": "2.0.0-dev.3.10",
+    "validatorVersion": "2.0.0-dev.3.11",
     "issues": {
         "numErrors": 1,
         "numWarnings": 1,
-        "numInfos": 2,
+        "numInfos": 0,
         "numHints": 0,
         "messages": [
             {
@@ -15,22 +15,10 @@
                 "pointer": "/animations/0/channels/0/target/path"
             },
             {
-                "code": "INCOMPLETE_EXTENSION_SUPPORT",
-                "message": "Validation support for this extension is incomplete; the asset may have undetected issues.",
-                "severity": 2,
-                "pointer": "/animations/0/channels/0/target/extensions/KHR_animation_pointer"
-            },
-            {
                 "code": "KHR_ANIMATION_POINTER_ANIMATION_CHANNEL_TARGET_PATH",
                 "message": "This extension requires the animation channel target path to be 'pointer'. Found 'path' instead.",
                 "severity": 0,
                 "pointer": "/animations/0/channels/0/target/extensions/KHR_animation_pointer"
-            },
-            {
-                "code": "UNUSED_OBJECT",
-                "message": "This object may be unused.",
-                "severity": 2,
-                "pointer": "/materials/0"
             }
         ],
         "truncated": false
