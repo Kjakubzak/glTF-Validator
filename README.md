@@ -36,6 +36,15 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
 - Extensions validation
   - EXT_texture_webp
   - KHR_animation_pointer
+  - KHR_character
+  - KHR_character_expression
+  - KHR_character_expression_joint
+  - KHR_character_expression_mapping
+  - KHR_character_expression_mask
+  - KHR_character_expression_morphtarget
+  - KHR_character_expression_texture
+  - KHR_character_reference_pose
+  - KHR_character_skeleton_mapping
   - KHR_lights_punctual
   - KHR_materials_anisotropy
   - KHR_materials_clearcoat
@@ -50,7 +59,11 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
   - KHR_materials_unlit
   - KHR_materials_variants
   - KHR_materials_volume
+  - KHR_mesh_primitive_visibility_hint
   - KHR_mesh_quantization
+  - KHR_node_camera_hint
+  - KHR_node_lookat_target
+  - KHR_node_visibility_hint
   - KHR_texture_transform
   - KHR_xmp_json_ld
 - [Full list of detectable issues](ISSUES.md).

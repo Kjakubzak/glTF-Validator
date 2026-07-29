@@ -113,7 +113,10 @@
 |KHR_ANIMATION_POINTER_INVALID_ACCESSOR|Output accessor format '`%1`' is incompatible with animation pointer type '`%2`'.|Error|
 |KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
+|KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
+|KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
 |KHR_MATERIALS_VARIANTS_NON_UNIQUE_VARIANT|This variant is used more than once for this mesh primitive.|Error|
+|KHR_NODE_CAMERA_HINT_SELF_REFERENCE|Camera hint targetNode must not reference the node containing the extension.|Error|
 |MESH_PRIMITIVE_ACCESSOR_UNALIGNED|Vertex attribute data must be aligned to 4-byte boundaries.|Error|
 |MESH_PRIMITIVE_ACCESSOR_WITHOUT_BYTESTRIDE|bufferView.byteStride must be defined when two or more accessors use the same buffer view.|Error|
 |MESH_PRIMITIVE_ATTRIBUTES_ACCESSOR_INVALID_FORMAT|Invalid accessor format '`%1`' for this attribute semantic. Must be one of ('`%a`', '`%b`', '`%c`').|Error|

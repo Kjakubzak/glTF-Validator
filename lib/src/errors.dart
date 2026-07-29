@@ -728,6 +728,22 @@ class LinkError extends IssueType {
       (args) => 'Animation pointer target requires STEP interpolation. '
           'Found ${_q(args[0])}.');
 
+  static final LinkError khrCharacterInvalidExpressionTarget = LinkError._(
+      'KHR_CHARACTER_INVALID_EXPRESSION_TARGET',
+      (args) => 'Animation channel target is incompatible with this '
+          'character expression type.');
+
+  static final LinkError khrCharacterInvalidTextureExpressionPointer =
+      LinkError._(
+          'KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER',
+          (args) => 'Texture expression channel must target the offset, scale, '
+              'or rotation property of a KHR_texture_transform object.');
+
+  static final LinkError khrNodeCameraHintSelfReference = LinkError._(
+      'KHR_NODE_CAMERA_HINT_SELF_REFERENCE',
+      (args) => 'Camera hint targetNode must not reference the node containing '
+          'the extension.');
+
   static final LinkError invalidIbmAccessorCount = LinkError._(
       'INVALID_IBM_ACCESSOR_COUNT',
       (args) => 'IBM accessor must have at least ${args[0]} elements.'
