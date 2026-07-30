@@ -55,12 +55,18 @@ Future<void> main() async {
     final mask = entry.extensions[KHR_CHARACTER_EXPRESSION_MASK]
         as KhrCharacterExpressionMask;
     expect(mask.masks[0].target, same(entry));
+    expect(mask.masks[0].name, 'customSmile');
     final mapping = result.gltf.extensions[KHR_CHARACTER_EXPRESSION_MAPPING]
         as KhrCharacterExpressionMapping;
     expect(mapping.expressionSetMappings['example']['Smile'][0].source,
         same(entry));
-    expect(result.gltf.extensions[KHR_CHARACTER_SKELETON_MAPPING],
-        isA<KhrCharacterSkeletonMapping>());
+    expect(mapping.expressionSetMappings['example']['Smile'][0].name,
+        'customSmile');
+    final skeleton = result.gltf.extensions[KHR_CHARACTER_SKELETON_MAPPING]
+        as KhrCharacterSkeletonMapping;
+    expect(skeleton.skeletalRigMappings['example']['joint'].node,
+        same(result.gltf.nodes[1]));
+    expect(skeleton.skeletalRigMappings['example']['joint'].name, 'Joint');
     expect(result.gltf.animations[0].extensions[KHR_CHARACTER_REFERENCE_POSE],
         isA<KhrCharacterReferencePose>());
     expect(result.gltf.nodes[0].extensions[KHR_NODE_CAMERA_HINT],
@@ -131,7 +137,9 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     skeleton['skeletalRigMappings'] = <String, Object>{
-      'example': <String, Object>{'joint': 99}
+      'example': <String, Object>{
+        'joint': <String, Object>{'node': 99}
+      }
     };
     final nodes = map['nodes'] as List<Object>;
     final node = nodes[0] as Map<String, Object>;
@@ -172,6 +180,67 @@ Future<void> main() async {
         reader.context.issues
             .where((issue) => issue.type == LinkError.unresolvedReference),
         hasLength(2));
+  });
+
+  test('optional reference names must exactly match resolved objects',
+      () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final expressionRoot =
+        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
+    final expressions = expressionRoot['expressions'] as List<Object>;
+    final entry = expressions[0] as Map<String, Object>;
+    final entryExtensions = entry['extensions'] as Map<String, Object>;
+    final mask =
+        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
+    ((mask['masks'] as List<Object>)[0] as Map<String, Object>)['name'] =
+        'wrongMaskName';
+
+    final mapping =
+        extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
+    final sets = mapping['expressionSetMappings'] as Map<String, Object>;
+    final example = sets['example'] as Map<String, Object>;
+    ((example['Smile'] as List<Object>)[0] as Map<String, Object>)['name'] =
+        'wrongMappingName';
+
+    final skeleton =
+        extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
+    final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
+    final joints = rigs['example'] as Map<String, Object>;
+    (joints['joint'] as Map<String, Object>)['name'] = 'wrongNodeName';
+
+    final reader = await readMap(map);
+    expect(
+        reader.context.issues.where((issue) =>
+            issue.type == LinkError.khrCharacterReferenceNameMismatch),
+        hasLength(3));
+  });
+
+  test('reference names remain optional', () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final expressionRoot =
+        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
+    final expressions = expressionRoot['expressions'] as List<Object>;
+    final entry = expressions[0] as Map<String, Object>;
+    final entryExtensions = entry['extensions'] as Map<String, Object>;
+    final mask =
+        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
+    ((mask['masks'] as List<Object>)[0] as Map<String, Object>).remove('name');
+    final mapping =
+        extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
+    final sets = mapping['expressionSetMappings'] as Map<String, Object>;
+    final example = sets['example'] as Map<String, Object>;
+    ((example['Smile'] as List<Object>)[0] as Map<String, Object>)
+        .remove('name');
+    final skeleton =
+        extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
+    final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
+    final joints = rigs['example'] as Map<String, Object>;
+    (joints['joint'] as Map<String, Object>).remove('name');
+
+    final reader = await readMap(map);
+    expect(reader.context.errors, isEmpty);
   });
 
   test('required members and nonempty arrays are enforced', () async {
@@ -254,10 +323,25 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     skeleton['skeletalRigMappings'] = <String, Object>{
-      'example': <String, Object>{'joint': 1.0}
+      'example': <String, Object>{
+        'joint': <String, Object>{'node': 1.0}
+      }
     };
     final reader = await readMap(map);
     expect(reader.context.errors, isEmpty);
+  });
+
+  test('legacy integer skeleton associations are rejected', () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final skeleton =
+        extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
+    skeleton['skeletalRigMappings'] = <String, Object>{
+      'example': <String, Object>{'joint': 1}
+    };
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(SchemaError.typeMismatch));
   });
 
   test('dependent extensions require the character root object', () async {

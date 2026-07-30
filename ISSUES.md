@@ -115,6 +115,7 @@
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
 |KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
 |KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
+|KHR_CHARACTER_REFERENCE_NAME_MISMATCH|Reference name '`%1`' does not exactly match the referenced object name '`%2`'.|Error|
 |KHR_MATERIALS_VARIANTS_NON_UNIQUE_VARIANT|This variant is used more than once for this mesh primitive.|Error|
 |KHR_NODE_CAMERA_HINT_SELF_REFERENCE|Camera hint targetNode must not reference the node containing the extension.|Error|
 |MESH_PRIMITIVE_ACCESSOR_UNALIGNED|Vertex attribute data must be aligned to 4-byte boundaries.|Error|

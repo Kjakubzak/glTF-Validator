@@ -739,6 +739,11 @@ class LinkError extends IssueType {
           (args) => 'Texture expression channel must target the offset, scale, '
               'or rotation property of a KHR_texture_transform object.');
 
+  static final LinkError khrCharacterReferenceNameMismatch = LinkError._(
+      'KHR_CHARACTER_REFERENCE_NAME_MISMATCH',
+      (args) => 'Reference name ${_q(args[0])} does not exactly match the '
+          'referenced object name ${_q(args[1])}.');
+
   static final LinkError khrNodeCameraHintSelfReference = LinkError._(
       'KHR_NODE_CAMERA_HINT_SELF_REFERENCE',
       (args) => 'Camera hint targetNode must not reference the node containing '

@@ -33,6 +33,7 @@
               "masks": [
                 {
                   "target": 0,
+                  "name": "customSmile",
                   "type": "CUSTOM_soft_block",
                   "amount": 0.5,
                   "threshold": 0.25
@@ -46,12 +47,16 @@
     "KHR_character_expression_mapping": {
       "expressionSetMappings": {
         "example": {
-          "Smile": [{ "source": 0, "weight": 1.0 }]
+          "Smile": [{ "source": 0, "name": "customSmile", "weight": 1.0 }]
         }
       }
     },
     "KHR_character_skeleton_mapping": {
-      "skeletalRigMappings": {}
+      "skeletalRigMappings": {
+        "example": {
+          "joint": { "node": 1, "name": "Joint" }
+        }
+      }
     }
   },
   "accessors": [
@@ -122,6 +127,7 @@
   ],
   "nodes": [
     {
+      "name": "Root",
       "children": [1, 2],
       "extensions": {
         "KHR_node_camera_hint": {
@@ -132,11 +138,13 @@
       }
     },
     {
+      "name": "Joint",
       "extensions": {
         "KHR_node_lookat_target": { "hint": "CUSTOM_focus" }
       }
     },
     {
+      "name": "Mesh",
       "mesh": 0,
       "weights": [0],
       "extensions": {

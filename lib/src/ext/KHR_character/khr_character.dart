@@ -178,22 +178,30 @@ class KhrCharacterExpressionMaskEntry extends GltfProperty {
   final int targetIndex;
   KhrCharacterExpressionEntry _target;
   KhrCharacterExpressionEntry get target => _target;
+  final String name;
   final String type;
   final double amount;
   final double threshold;
 
-  KhrCharacterExpressionMaskEntry._(this.targetIndex, this.type, this.amount,
-      this.threshold, Map<String, Object> extensions, Object extras)
+  KhrCharacterExpressionMaskEntry._(
+      this.targetIndex,
+      this.name,
+      this.type,
+      this.amount,
+      this.threshold,
+      Map<String, Object> extensions,
+      Object extras)
       : super(extensions, extras);
 
   static KhrCharacterExpressionMaskEntry fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(
-          map, const <String>[TARGET, TYPE, AMOUNT, THRESHOLD], context);
+          map, const <String>[TARGET, NAME, TYPE, AMOUNT, THRESHOLD], context);
     }
     return KhrCharacterExpressionMaskEntry._(
         getIndex(map, TARGET, context),
+        getString(map, NAME, context),
         getString(map, TYPE, context, def: 'blend', regexp: _nonEmpty),
         getFloat(map, AMOUNT, context, min: 0, max: 1, def: 1),
         getFloat(map, THRESHOLD, context, min: 0, max: 1, def: 0),
@@ -244,6 +252,9 @@ class KhrCharacterExpressionMask extends GltfProperty {
       if (mask.targetIndex != -1 && mask._target == null) {
         context.addIssue(LinkError.unresolvedReference,
             name: TARGET, args: [mask.targetIndex]);
+      } else if (mask.name != null && mask.name != mask._target?.expression) {
+        context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
+            name: NAME, args: [mask.name, mask._target?.expression]);
       }
       context.path.removeLast();
     });
@@ -384,19 +395,21 @@ class KhrCharacterExpressionMappingSource extends GltfProperty {
   final int sourceIndex;
   KhrCharacterExpressionEntry _source;
   KhrCharacterExpressionEntry get source => _source;
+  final String name;
   final double weight;
 
-  KhrCharacterExpressionMappingSource._(this.sourceIndex, this.weight,
-      Map<String, Object> extensions, Object extras)
+  KhrCharacterExpressionMappingSource._(this.sourceIndex, this.name,
+      this.weight, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrCharacterExpressionMappingSource fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[MAPPING_SOURCE, WEIGHT], context);
+      checkMembers(map, const <String>[MAPPING_SOURCE, NAME, WEIGHT], context);
     }
     return KhrCharacterExpressionMappingSource._(
         getIndex(map, MAPPING_SOURCE, context),
+        getString(map, NAME, context),
         getFloat(map, WEIGHT, context, req: true),
         getExtensions(map, KhrCharacterExpressionMappingSource, context),
         getExtras(map, context));
@@ -488,6 +501,12 @@ class KhrCharacterExpressionMapping extends GltfProperty {
           if (source.sourceIndex != -1 && source._source == null) {
             context.addIssue(LinkError.unresolvedReference,
                 index: i, args: [source.sourceIndex]);
+          } else if (source.name != null &&
+              source.name != source._source?.expression) {
+            context.path.add(i.toString());
+            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
+                name: NAME, args: [source.name, source._source?.expression]);
+            context.path.removeLast();
           }
         }
         context.path.removeLast();
@@ -498,13 +517,36 @@ class KhrCharacterExpressionMapping extends GltfProperty {
   }
 }
 
-class KhrCharacterSkeletonMapping extends GltfProperty {
-  final Map<String, Map<String, int>> skeletalRigMappingIndices;
-  final Map<String, Map<String, Node>> skeletalRigMappings =
-      <String, Map<String, Node>>{};
+class KhrCharacterSkeletonMappingJointAssociation extends GltfProperty {
+  final int nodeIndex;
+  final String name;
+  Node _node;
+  Node get node => _node;
 
-  KhrCharacterSkeletonMapping._(this.skeletalRigMappingIndices,
-      Map<String, Object> extensions, Object extras)
+  KhrCharacterSkeletonMappingJointAssociation._(
+      this.nodeIndex, this.name, Map<String, Object> extensions, Object extras)
+      : super(extensions, extras);
+
+  static KhrCharacterSkeletonMappingJointAssociation fromMap(
+      Map<String, Object> map, Context context) {
+    if (context.validate) {
+      checkMembers(map, const <String>[NODE, NAME], context);
+    }
+    return KhrCharacterSkeletonMappingJointAssociation._(
+        getIndex(map, NODE, context),
+        getString(map, NAME, context),
+        getExtensions(
+            map, KhrCharacterSkeletonMappingJointAssociation, context),
+        getExtras(map, context));
+  }
+}
+
+class KhrCharacterSkeletonMapping extends GltfProperty {
+  final Map<String, Map<String, KhrCharacterSkeletonMappingJointAssociation>>
+      skeletalRigMappings;
+
+  KhrCharacterSkeletonMapping._(
+      this.skeletalRigMappings, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrCharacterSkeletonMapping fromMap(
@@ -512,19 +554,30 @@ class KhrCharacterSkeletonMapping extends GltfProperty {
     if (context.validate) {
       checkMembers(map, const <String>[SKELETAL_RIG_MAPPINGS], context);
     }
-    final result = <String, Map<String, int>>{};
+    final result =
+        <String, Map<String, KhrCharacterSkeletonMappingJointAssociation>>{};
+    final associations = <KhrCharacterSkeletonMappingJointAssociation>[];
     final rigs = getMap(map, SKELETAL_RIG_MAPPINGS, context, req: true);
     if (rigs != null) {
       context.path.add(SKELETAL_RIG_MAPPINGS);
       rigs.forEach((rig, value) {
         if (value is Map<String, Object>) {
-          final joints = <String, int>{};
+          final joints =
+              <String, KhrCharacterSkeletonMappingJointAssociation>{};
           result[rig] = joints;
           context.path.add(rig);
-          value.forEach((joint, _) {
-            final index = getIndex(value, joint, context);
-            if (index != -1) {
-              joints[joint] = index;
+          value.forEach((joint, associationValue) {
+            if (associationValue is Map<String, Object>) {
+              context.path.add(joint);
+              final association =
+                  KhrCharacterSkeletonMappingJointAssociation.fromMap(
+                      associationValue, context);
+              joints[joint] = association;
+              associations.add(association);
+              context.path.removeLast();
+            } else {
+              context.addIssue(SchemaError.typeMismatch,
+                  name: joint, args: [associationValue, 'object']);
             }
           });
           context.path.removeLast();
@@ -535,28 +588,34 @@ class KhrCharacterSkeletonMapping extends GltfProperty {
       });
       context.path.removeLast();
     }
-    return KhrCharacterSkeletonMapping._(
+    final mapping = KhrCharacterSkeletonMapping._(
         result,
         getExtensions(map, KhrCharacterSkeletonMapping, context),
         getExtras(map, context));
+    context.registerObjectsOwner(mapping, associations);
+    return mapping;
   }
 
   @override
   void link(Gltf gltf, Context context) {
     _requireRootObject(gltf, context, KHR_CHARACTER);
     context.path.add(SKELETAL_RIG_MAPPINGS);
-    skeletalRigMappingIndices.forEach((rig, joints) {
-      final resolved = <String, Node>{};
-      skeletalRigMappings[rig] = resolved;
+    skeletalRigMappings.forEach((rig, joints) {
       context.path.add(rig);
-      joints.forEach((joint, index) {
-        final node = gltf.nodes[index];
-        if (node == null) {
+      joints.forEach((joint, association) {
+        association._node = gltf.nodes[association.nodeIndex];
+        if (association._node == null) {
           context.addIssue(LinkError.unresolvedReference,
-              name: joint, args: [index]);
+              name: joint, args: [association.nodeIndex]);
         } else {
-          resolved[joint] = node;
-          node.markAsUsed();
+          association._node.markAsUsed();
+          if (association.name != null &&
+              association.name != association._node.name) {
+            context.path.add(joint);
+            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
+                name: NAME, args: [association.name, association._node.name]);
+            context.path.removeLast();
+          }
         }
       });
       context.path.removeLast();
