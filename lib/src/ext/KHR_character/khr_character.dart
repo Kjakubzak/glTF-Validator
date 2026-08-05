@@ -45,6 +45,20 @@ const String HINT = 'hint';
 
 final RegExp _nonEmpty = RegExp('.+');
 
+void _withPath(Context context, Iterable<String> path, void Function() action) {
+  final previousPath = context.path.toList(growable: false);
+  context.path
+    ..clear()
+    ..addAll(path);
+  try {
+    action();
+  } finally {
+    context.path
+      ..clear()
+      ..addAll(previousPath);
+  }
+}
+
 void _requireUsed(Gltf gltf, Context context, String extension) {
   if (!gltf.extensionsUsed.contains(extension)) {
     context.addIssue(SchemaError.unsatisfiedDependency, args: [extension]);
@@ -636,7 +650,7 @@ class KhrCharacterReferencePose extends GltfProperty {
       checkMembers(map, const <String>[POSE_TYPE], context);
     }
     return KhrCharacterReferencePose._(
-        getString(map, POSE_TYPE, context, def: 'TPose'),
+        getString(map, POSE_TYPE, context, def: 'TPose', regexp: _nonEmpty),
         getExtensions(map, KhrCharacterReferencePose, context),
         getExtras(map, context));
   }
@@ -644,6 +658,58 @@ class KhrCharacterReferencePose extends GltfProperty {
   @override
   void link(Gltf gltf, Context context) {
     _requireRootObject(gltf, context, KHR_CHARACTER);
+    final animationIndex = gltf.animations.indexWhere((animation) =>
+        animation?.extensions[KHR_CHARACTER_REFERENCE_POSE] == this);
+    if (animationIndex == -1) {
+      return;
+    }
+
+    final animation = gltf.animations[animationIndex];
+    _withPath(context, <String>[ANIMATIONS, animationIndex.toString()], () {
+      if (animation.channels == null || animation.channels.isEmpty) {
+        context.addIssue(LinkError.khrCharacterReferencePoseNoChannels,
+            name: CHANNELS);
+        return;
+      }
+
+      final referencedSamplers = <AnimationSampler>{};
+      context.path.add(CHANNELS);
+      animation.channels.forEachWithIndices((index, channel) {
+        context.path.add(index.toString());
+        final target = channel?.target;
+        if (target == null ||
+            target.nodeIndex == -1 ||
+            (target.path != TRANSLATION &&
+                target.path != ROTATION &&
+                target.path != SCALE)) {
+          context.addIssue(LinkError.khrCharacterReferencePoseInvalidTarget,
+              name: TARGET);
+        }
+        if (channel?.sampler != null) {
+          referencedSamplers.add(channel.sampler);
+        }
+        context.path.removeLast();
+      });
+      context.path.removeLast();
+
+      context.path.add(SAMPLERS);
+      for (final sampler in referencedSamplers) {
+        final samplerIndex = animation.samplers.indexOf(sampler);
+        context.path.add(samplerIndex.toString());
+        if (sampler.input != null && sampler.input.count != 1) {
+          context.addIssue(LinkError.khrCharacterReferencePoseInputCount,
+              name: INPUT, args: [sampler.input.count]);
+        }
+        if (sampler.interpolation != LINEAR && sampler.interpolation != STEP) {
+          context.addIssue(
+              LinkError.khrCharacterReferencePoseInvalidInterpolation,
+              name: INTERPOLATION,
+              args: [sampler.interpolation]);
+        }
+        context.path.removeLast();
+      }
+      context.path.removeLast();
+    });
   }
 }
 

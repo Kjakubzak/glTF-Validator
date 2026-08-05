@@ -67,7 +67,7 @@ Future<void> main() async {
     expect(skeleton.skeletalRigMappings['example']['joint'].node,
         same(result.gltf.nodes[1]));
     expect(skeleton.skeletalRigMappings['example']['joint'].name, 'Joint');
-    expect(result.gltf.animations[0].extensions[KHR_CHARACTER_REFERENCE_POSE],
+    expect(result.gltf.animations[1].extensions[KHR_CHARACTER_REFERENCE_POSE],
         isA<KhrCharacterReferencePose>());
     expect(result.gltf.nodes[0].extensions[KHR_NODE_CAMERA_HINT],
         isA<KhrNodeCameraHint>());
@@ -107,7 +107,7 @@ Future<void> main() async {
     final expressionRoot =
         extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
     final expressions = expressionRoot['expressions'] as List<Object>;
-    (expressions[0] as Map<String, Object>)['animation'] = 1;
+    (expressions[0] as Map<String, Object>)['animation'] = 2;
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
         contains(LinkError.khrCharacterInvalidExpressionTarget));
@@ -342,6 +342,35 @@ Future<void> main() async {
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
         contains(SchemaError.typeMismatch));
+  });
+
+  test('reference poses require nonempty labels and static TRS channels',
+      () async {
+    final map = await loadMap();
+    final animations = map['animations'] as List<Object>;
+    final pose = animations[1] as Map<String, Object>;
+    final poseExtensions = pose['extensions'] as Map<String, Object>;
+    (poseExtensions[KHR_CHARACTER_REFERENCE_POSE]
+        as Map<String, Object>)['poseType'] = '';
+    final channels = pose['channels'] as List<Object>;
+    (channels[0] as Map<String, Object>)['target'] = <String, Object>{
+      'node': 2,
+      'path': 'weights'
+    };
+    final sampler =
+        (pose['samplers'] as List<Object>)[0] as Map<String, Object>;
+    sampler['interpolation'] = 'CUBICSPLINE';
+    final inputIndex = sampler['input'] as int;
+    ((map['accessors'] as List<Object>)[inputIndex]
+        as Map<String, Object>)['count'] = 2;
+
+    final reader = await readMap(map);
+    final issues = reader.context.issues.map((issue) => issue.type);
+    expect(issues, contains(LinkError.khrCharacterReferencePoseInvalidTarget));
+    expect(issues, contains(LinkError.khrCharacterReferencePoseInputCount));
+    expect(issues,
+        contains(LinkError.khrCharacterReferencePoseInvalidInterpolation));
+    expect(reader.context.errors, isNotEmpty);
   });
 
   test('dependent extensions require the character root object', () async {

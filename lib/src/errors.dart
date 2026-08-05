@@ -744,6 +744,27 @@ class LinkError extends IssueType {
       (args) => 'Reference name ${_q(args[0])} does not exactly match the '
           'referenced object name ${_q(args[1])}.');
 
+  static final LinkError khrCharacterReferencePoseInputCount = LinkError._(
+      'KHR_CHARACTER_REFERENCE_POSE_INPUT_COUNT',
+      (args) => 'A reference-pose sampler input accessor must contain exactly '
+          'one element. Found ${args[0]}.');
+
+  static final LinkError khrCharacterReferencePoseInvalidInterpolation =
+      LinkError._(
+          'KHR_CHARACTER_REFERENCE_POSE_INVALID_INTERPOLATION',
+          (args) => 'A reference-pose sampler must use LINEAR or STEP '
+              'interpolation. Found ${_q(args[0])}.');
+
+  static final LinkError khrCharacterReferencePoseInvalidTarget = LinkError._(
+      'KHR_CHARACTER_REFERENCE_POSE_INVALID_TARGET',
+      (args) => 'A reference-pose channel must target an ordinary node '
+          'translation, rotation, or scale property.');
+
+  static final LinkError khrCharacterReferencePoseNoChannels = LinkError._(
+      'KHR_CHARACTER_REFERENCE_POSE_NO_CHANNELS',
+      (args) =>
+          'A reference-pose animation must contain at least one channel.');
+
   static final LinkError khrNodeCameraHintSelfReference = LinkError._(
       'KHR_NODE_CAMERA_HINT_SELF_REFERENCE',
       (args) => 'Camera hint targetNode must not reference the node containing '

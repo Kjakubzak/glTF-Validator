@@ -69,9 +69,6 @@
   ],
   "animations": [
     {
-      "extensions": {
-        "KHR_character_reference_pose": { "poseType": "CUSTOM_neutral" }
-      },
       "channels": [
         { "sampler": 0, "target": { "node": 1, "path": "translation" } },
         { "sampler": 1, "target": { "node": 2, "path": "weights" } },
@@ -91,6 +88,17 @@
         { "input": 0, "output": 1 },
         { "input": 0, "output": 4 },
         { "input": 0, "output": 5 }
+      ]
+    },
+    {
+      "extensions": {
+        "KHR_character_reference_pose": { "poseType": "CUSTOM_neutral" }
+      },
+      "channels": [
+        { "sampler": 0, "target": { "node": 1, "path": "translation" } }
+      ],
+      "samplers": [
+        { "input": 0, "output": 1, "interpolation": "STEP" }
       ]
     }
   ],
