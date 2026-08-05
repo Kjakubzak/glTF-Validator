@@ -331,6 +331,68 @@ Future<void> main() async {
     expect(reader.context.errors.length, greaterThanOrEqualTo(3));
   });
 
+  test('mask types and optional names follow the proposal grammar', () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final expressionRoot =
+        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
+    final expressions = expressionRoot['expressions'] as List<Object>;
+    final entry = expressions[0] as Map<String, Object>;
+    final entryExtensions = entry['extensions'] as Map<String, Object>;
+    final mask =
+        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
+    final masks = mask['masks'] as List<Object>;
+    (masks[0] as Map<String, Object>)
+      ..['type'] = 'ACME_InvalidSuffix'
+      ..['name'] = '';
+
+    final reader = await readMap(map);
+    expect(
+        reader.context.issues
+            .where((issue) => issue.type == SchemaError.patternMismatch),
+        hasLength(2));
+  });
+
+  test('mask arrays are required and custom companions must be declared',
+      () async {
+    final missing = await loadMap();
+    final missingExpressionRoot =
+        (missing['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final missingEntry = (missingExpressionRoot['expressions']
+        as List<Object>)[0] as Map<String, Object>;
+    final missingEntryExtensions =
+        missingEntry['extensions'] as Map<String, Object>;
+    (missingEntryExtensions[KHR_CHARACTER_EXPRESSION_MASK]
+            as Map<String, Object>)
+        .remove('masks');
+    final missingReader = await readMap(missing);
+    expect(missingReader.context.issues.map((issue) => issue.type),
+        contains(SchemaError.undefinedProperty));
+
+    final companion = await loadMap();
+    final companionExpressionRoot = (companion['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+        as Map<String, Object>;
+    final companionEntry = (companionExpressionRoot['expressions']
+        as List<Object>)[0] as Map<String, Object>;
+    final companionEntryExtensions =
+        companionEntry['extensions'] as Map<String, Object>;
+    final companionMask =
+        companionEntryExtensions[KHR_CHARACTER_EXPRESSION_MASK]
+            as Map<String, Object>;
+    final companionMaskEntry =
+        (companionMask['masks'] as List<Object>)[0] as Map<String, Object>;
+    companionMaskEntry
+      ..['type'] = 'ACME_expression_mask_curve'
+      ..['extensions'] = <String, Object>{
+        'ACME_expression_mask_curve': <String, Object>{}
+      };
+    final companionReader = await readMap(companion);
+    expect(companionReader.context.issues.map((issue) => issue.type),
+        contains(LinkError.undeclaredExtension));
+  });
+
   test('empty skeleton dictionaries are rejected', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;

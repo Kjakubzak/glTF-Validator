@@ -46,6 +46,8 @@ const String LABEL = 'label';
 const String HINT = 'hint';
 
 final RegExp _nonEmpty = RegExp('.+');
+final RegExp _maskType =
+    RegExp(r'^(?:blend|block|[A-Z0-9]+_[a-z0-9]+(?:_[a-z0-9]+)*)$');
 
 bool _isAbsoluteUri(String value) {
   try {
@@ -224,8 +226,8 @@ class KhrCharacterExpressionMaskEntry extends GltfProperty {
     }
     return KhrCharacterExpressionMaskEntry._(
         getIndex(map, TARGET, context),
-        getString(map, NAME, context),
-        getString(map, TYPE, context, def: 'blend', regexp: _nonEmpty),
+        getString(map, NAME, context, regexp: _nonEmpty),
+        getString(map, TYPE, context, def: 'blend', regexp: _maskType),
         getFloat(map, AMOUNT, context, min: 0, max: 1, def: 1),
         getFloat(map, THRESHOLD, context, min: 0, max: 1, def: 0),
         getExtensions(map, KhrCharacterExpressionMaskEntry, context),
@@ -244,6 +246,9 @@ class KhrCharacterExpressionMask extends GltfProperty {
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(map, const <String>[MASKS], context);
+      if (!map.containsKey(MASKS)) {
+        context.addIssue(SchemaError.undefinedProperty, args: [MASKS]);
+      }
     }
     final maps = getMapList(map, MASKS, context);
     final masks = maps == null
