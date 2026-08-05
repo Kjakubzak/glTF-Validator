@@ -12,6 +12,7 @@ import 'package:test/test.dart';
 
 Future<void> main() async {
   const path = 'test/ext/KHR_character/data/valid_complete.gltf';
+  const expressionSet = 'https://example.com/expressions/v1';
   const skeletonSet = 'https://example.com/skeleton/v1';
 
   Future<Map<String, Object>> loadMap() async =>
@@ -59,9 +60,13 @@ Future<void> main() async {
     expect(mask.masks[0].name, 'customSmile');
     final mapping = result.gltf.extensions[KHR_CHARACTER_EXPRESSION_MAPPING]
         as KhrCharacterExpressionMapping;
-    expect(mapping.expressionSetMappings['example']['Smile'][0].source,
+    expect(mapping.expressionSetMappings[expressionSet]['Smile'][0].source,
         same(entry));
-    expect(mapping.expressionSetMappings['example']['Smile'][0].name,
+    expect(mapping.expressionSetMappings[expressionSet]['Smile'][0].name,
+        'customSmile');
+    expect(mapping.expressionSetInputMappings[expressionSet]['Smile'][0].target,
+        same(entry));
+    expect(mapping.expressionSetInputMappings[expressionSet]['Smile'][0].name,
         'customSmile');
     final skeleton = result.gltf.extensions[KHR_CHARACTER_SKELETON_MAPPING]
         as KhrCharacterSkeletonMapping;
@@ -172,15 +177,21 @@ Future<void> main() async {
     final mapping =
         extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
     final sets = mapping['expressionSetMappings'] as Map<String, Object>;
-    final example = sets['example'] as Map<String, Object>;
+    final example = sets[expressionSet] as Map<String, Object>;
     final sources = example['Smile'] as List<Object>;
     (sources[0] as Map<String, Object>)['source'] = 99;
+
+    final inputSets =
+        mapping['expressionSetInputMappings'] as Map<String, Object>;
+    final inputExample = inputSets[expressionSet] as Map<String, Object>;
+    final targets = inputExample['Smile'] as List<Object>;
+    (targets[0] as Map<String, Object>)['target'] = 99;
 
     final reader = await readMap(map);
     expect(
         reader.context.issues
             .where((issue) => issue.type == LinkError.unresolvedReference),
-        hasLength(2));
+        hasLength(3));
   });
 
   test('optional reference names must exactly match resolved objects',
@@ -200,9 +211,15 @@ Future<void> main() async {
     final mapping =
         extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
     final sets = mapping['expressionSetMappings'] as Map<String, Object>;
-    final example = sets['example'] as Map<String, Object>;
+    final example = sets[expressionSet] as Map<String, Object>;
     ((example['Smile'] as List<Object>)[0] as Map<String, Object>)['name'] =
         'wrongMappingName';
+
+    final inputSets =
+        mapping['expressionSetInputMappings'] as Map<String, Object>;
+    final inputExample = inputSets[expressionSet] as Map<String, Object>;
+    ((inputExample['Smile'] as List<Object>)[0]
+        as Map<String, Object>)['name'] = 'wrongInputMappingName';
 
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
@@ -214,7 +231,7 @@ Future<void> main() async {
     expect(
         reader.context.issues.where((issue) =>
             issue.type == LinkError.khrCharacterReferenceNameMismatch),
-        hasLength(3));
+        hasLength(4));
   });
 
   test('reference names remain optional', () async {
@@ -231,8 +248,13 @@ Future<void> main() async {
     final mapping =
         extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
     final sets = mapping['expressionSetMappings'] as Map<String, Object>;
-    final example = sets['example'] as Map<String, Object>;
+    final example = sets[expressionSet] as Map<String, Object>;
     ((example['Smile'] as List<Object>)[0] as Map<String, Object>)
+        .remove('name');
+    final inputSets =
+        mapping['expressionSetInputMappings'] as Map<String, Object>;
+    final inputExample = inputSets[expressionSet] as Map<String, Object>;
+    ((inputExample['Smile'] as List<Object>)[0] as Map<String, Object>)
         .remove('name');
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
@@ -317,6 +339,58 @@ Future<void> main() async {
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
         contains(SchemaError.emptyEntity));
+  });
+
+  test('mapping accepts either independent direction and rejects neither',
+      () async {
+    final forwardOnly = await loadMap();
+    final forwardMapping = (forwardOnly['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+        as Map<String, Object>;
+    forwardMapping.remove('expressionSetInputMappings');
+    final forwardReader = await readMap(forwardOnly);
+    expect(forwardReader.context.errors, isEmpty);
+
+    final inputOnly = await loadMap();
+    final inputMapping = (inputOnly['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+        as Map<String, Object>;
+    inputMapping.remove('expressionSetMappings');
+    final inputReader = await readMap(inputOnly);
+    expect(inputReader.context.errors, isEmpty);
+
+    final neither = await loadMap();
+    final emptyMapping = (neither['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+        as Map<String, Object>;
+    emptyMapping
+      ..remove('expressionSetMappings')
+      ..remove('expressionSetInputMappings');
+    final neitherReader = await readMap(neither);
+    expect(neitherReader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionMappingMissingOperation));
+  });
+
+  test('mapping validates set URIs, nonempty data, and weights', () async {
+    final map = await loadMap();
+    final mapping = (map['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+        as Map<String, Object>;
+    mapping['expressionSetMappings'] = <String, Object>{
+      'relative-profile': <String, Object>{
+        '': <Object>[
+          <String, Object>{'source': 0, 'weight': 1.1}
+        ]
+      }
+    };
+    mapping['expressionSetInputMappings'] = <String, Object>{};
+
+    final reader = await readMap(map);
+    final issues = reader.context.issues.map((issue) => issue.type);
+    expect(issues,
+        contains(LinkError.khrCharacterMappingSetIdentifierNotAbsolute));
+    expect(issues, contains(SchemaError.emptyEntity));
+    expect(issues, contains(SchemaError.valueNotInRange));
   });
 
   test('skeleton mappings use conventional glTF index parsing', () async {

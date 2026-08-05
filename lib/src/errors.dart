@@ -733,6 +733,12 @@ class LinkError extends IssueType {
       (args) => 'Animation channel target is incompatible with this '
           'character expression type.');
 
+  static final LinkError khrCharacterExpressionMappingMissingOperation =
+      LinkError._(
+          'KHR_CHARACTER_EXPRESSION_MAPPING_MISSING_OPERATION',
+          (args) => 'At least one character expression mapping operation must '
+              'be defined.');
+
   static final LinkError khrCharacterInvalidTextureExpressionPointer =
       LinkError._(
           'KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER',

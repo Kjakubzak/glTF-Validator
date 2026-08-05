@@ -45,8 +45,13 @@
     },
     "KHR_character_expression_mapping": {
       "expressionSetMappings": {
-        "example": {
+        "https://example.com/expressions/v1": {
           "Smile": [{ "source": 0, "name": "customSmile", "weight": 1.0 }]
+        }
+      },
+      "expressionSetInputMappings": {
+        "https://example.com/expressions/v1": {
+          "Smile": [{ "target": 0, "name": "customSmile", "weight": 0.5 }]
         }
       }
     },

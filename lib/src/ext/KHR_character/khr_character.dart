@@ -30,7 +30,9 @@ const String EXPRESSIONS = 'expressions';
 const String EXPRESSION = 'expression';
 const String ANIMATION = 'animation';
 const String EXPRESSION_SET_MAPPINGS = 'expressionSetMappings';
+const String EXPRESSION_SET_INPUT_MAPPINGS = 'expressionSetInputMappings';
 const String MAPPING_SOURCE = 'source';
+const String MAPPING_TARGET = 'target';
 const String WEIGHT = 'weight';
 const String MASKS = 'masks';
 const String AMOUNT = 'amount';
@@ -430,74 +432,147 @@ class KhrCharacterExpressionMappingSource extends GltfProperty {
     }
     return KhrCharacterExpressionMappingSource._(
         getIndex(map, MAPPING_SOURCE, context),
-        getString(map, NAME, context),
-        getFloat(map, WEIGHT, context, req: true),
+        getString(map, NAME, context, regexp: _nonEmpty),
+        getFloat(map, WEIGHT, context, req: true, min: 0, max: 1),
         getExtensions(map, KhrCharacterExpressionMappingSource, context),
         getExtras(map, context));
   }
 }
 
+class KhrCharacterExpressionMappingTarget extends GltfProperty {
+  final int targetIndex;
+  KhrCharacterExpressionEntry _target;
+  KhrCharacterExpressionEntry get target => _target;
+  final String name;
+  final double weight;
+
+  KhrCharacterExpressionMappingTarget._(this.targetIndex, this.name,
+      this.weight, Map<String, Object> extensions, Object extras)
+      : super(extensions, extras);
+
+  static KhrCharacterExpressionMappingTarget fromMap(
+      Map<String, Object> map, Context context) {
+    if (context.validate) {
+      checkMembers(map, const <String>[MAPPING_TARGET, NAME, WEIGHT], context);
+    }
+    return KhrCharacterExpressionMappingTarget._(
+        getIndex(map, MAPPING_TARGET, context),
+        getString(map, NAME, context, regexp: _nonEmpty),
+        getFloat(map, WEIGHT, context, req: true, min: 0, max: 1),
+        getExtensions(map, KhrCharacterExpressionMappingTarget, context),
+        getExtras(map, context));
+  }
+}
+
+Map<String, Map<String, List<T>>> _parseExpressionMappingOperation<T>(
+    Map<String, Object> map,
+    String operationName,
+    Context context,
+    T Function(Map<String, Object>, Context) fromMap) {
+  final result = <String, Map<String, List<T>>>{};
+  if (!map.containsKey(operationName)) {
+    return result;
+  }
+  final setMaps = getMap(map, operationName, context);
+  if (setMaps == null) {
+    return result;
+  }
+
+  context.path.add(operationName);
+  if (setMaps.isEmpty) {
+    context.addIssue(SchemaError.emptyEntity);
+  }
+  setMaps.forEach((setName, value) {
+    if (!_isAbsoluteUri(setName)) {
+      context.addIssue(LinkError.khrCharacterMappingSetIdentifierNotAbsolute,
+          name: setName, args: [setName]);
+    }
+    if (value is Map<String, Object>) {
+      final mappings = <String, List<T>>{};
+      result[setName] = mappings;
+      context.path.add(setName);
+      if (value.isEmpty) {
+        context.addIssue(SchemaError.emptyEntity);
+      }
+      value.forEach((endpointName, entriesValue) {
+        if (endpointName.isEmpty) {
+          context.addIssue(SchemaError.emptyEntity, name: endpointName);
+        }
+        if (entriesValue is List<Object>) {
+          if (entriesValue.isEmpty) {
+            context.addIssue(SchemaError.emptyEntity, name: endpointName);
+            return;
+          }
+          final entries = <T>[];
+          mappings[endpointName] = entries;
+          context.path.add(endpointName);
+          for (var i = 0; i < entriesValue.length; ++i) {
+            final entryMap = entriesValue[i];
+            if (entryMap is Map<String, Object>) {
+              context.path.add(i.toString());
+              entries.add(fromMap(entryMap, context));
+              context.path.removeLast();
+            } else {
+              context.addIssue(SchemaError.arrayTypeMismatch,
+                  index: i, args: [entryMap, 'object']);
+            }
+          }
+          context.path.removeLast();
+        } else {
+          context.addIssue(SchemaError.typeMismatch,
+              name: endpointName, args: [entriesValue, 'array']);
+        }
+      });
+      context.path.removeLast();
+    } else {
+      context.addIssue(SchemaError.typeMismatch,
+          name: setName, args: [value, 'object']);
+    }
+  });
+  context.path.removeLast();
+  return result;
+}
+
 class KhrCharacterExpressionMapping extends GltfProperty {
   final Map<String, Map<String, List<KhrCharacterExpressionMappingSource>>>
       expressionSetMappings;
+  final Map<String, Map<String, List<KhrCharacterExpressionMappingTarget>>>
+      expressionSetInputMappings;
 
   KhrCharacterExpressionMapping._(
-      this.expressionSetMappings, Map<String, Object> extensions, Object extras)
+      this.expressionSetMappings,
+      this.expressionSetInputMappings,
+      Map<String, Object> extensions,
+      Object extras)
       : super(extensions, extras);
 
   static KhrCharacterExpressionMapping fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[EXPRESSION_SET_MAPPINGS], context);
-    }
-    final sets =
-        <String, Map<String, List<KhrCharacterExpressionMappingSource>>>{};
-    final setMaps = getMap(map, EXPRESSION_SET_MAPPINGS, context, req: true);
-    if (setMaps != null) {
-      context.path.add(EXPRESSION_SET_MAPPINGS);
-      setMaps.forEach((setName, value) {
-        if (value is Map<String, Object>) {
-          final mappings =
-              <String, List<KhrCharacterExpressionMappingSource>>{};
-          sets[setName] = mappings;
-          context.path.add(setName);
-          value.forEach((targetName, sourcesValue) {
-            if (sourcesValue is List<Object>) {
-              if (sourcesValue.isEmpty) {
-                context.addIssue(SchemaError.emptyEntity, name: targetName);
-                return;
-              }
-              final sources = <KhrCharacterExpressionMappingSource>[];
-              mappings[targetName] = sources;
-              context.path.add(targetName);
-              for (var i = 0; i < sourcesValue.length; ++i) {
-                final sourceMap = sourcesValue[i];
-                if (sourceMap is Map<String, Object>) {
-                  context.path.add(i.toString());
-                  sources.add(KhrCharacterExpressionMappingSource.fromMap(
-                      sourceMap, context));
-                  context.path.removeLast();
-                } else {
-                  context.addIssue(SchemaError.arrayTypeMismatch,
-                      index: i, args: [sourceMap, 'object']);
-                }
-              }
-              context.path.removeLast();
-            } else {
-              context.addIssue(SchemaError.typeMismatch,
-                  name: targetName, args: [sourcesValue, 'array']);
-            }
-          });
-          context.path.removeLast();
-        } else {
-          context.addIssue(SchemaError.typeMismatch,
-              name: setName, args: [value, 'object']);
-        }
-      });
-      context.path.removeLast();
+      checkMembers(
+          map,
+          const <String>[
+            EXPRESSION_SET_MAPPINGS,
+            EXPRESSION_SET_INPUT_MAPPINGS
+          ],
+          context);
+      if (!map.containsKey(EXPRESSION_SET_MAPPINGS) &&
+          !map.containsKey(EXPRESSION_SET_INPUT_MAPPINGS)) {
+        context
+            .addIssue(LinkError.khrCharacterExpressionMappingMissingOperation);
+      }
     }
     return KhrCharacterExpressionMapping._(
-        sets,
+        _parseExpressionMappingOperation<KhrCharacterExpressionMappingSource>(
+            map,
+            EXPRESSION_SET_MAPPINGS,
+            context,
+            KhrCharacterExpressionMappingSource.fromMap),
+        _parseExpressionMappingOperation<KhrCharacterExpressionMappingTarget>(
+            map,
+            EXPRESSION_SET_INPUT_MAPPINGS,
+            context,
+            KhrCharacterExpressionMappingTarget.fromMap),
         getExtensions(map, KhrCharacterExpressionMapping, context),
         getExtras(map, context));
   }
@@ -527,6 +602,31 @@ class KhrCharacterExpressionMapping extends GltfProperty {
             context.path.add(i.toString());
             context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
                 name: NAME, args: [source.name, source._source?.expression]);
+            context.path.removeLast();
+          }
+        }
+        context.path.removeLast();
+      });
+      context.path.removeLast();
+    });
+    context.path.removeLast();
+
+    context.path.add(EXPRESSION_SET_INPUT_MAPPINGS);
+    expressionSetInputMappings.forEach((setName, mappings) {
+      context.path.add(setName);
+      mappings.forEach((endpointName, targets) {
+        context.path.add(endpointName);
+        for (var i = 0; i < targets.length; ++i) {
+          final target = targets[i];
+          target._target = expressions[target.targetIndex];
+          if (target.targetIndex != -1 && target._target == null) {
+            context.addIssue(LinkError.unresolvedReference,
+                index: i, args: [target.targetIndex]);
+          } else if (target.name != null &&
+              target.name != target._target?.expression) {
+            context.path.add(i.toString());
+            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
+                name: NAME, args: [target.name, target._target?.expression]);
             context.path.removeLast();
           }
         }

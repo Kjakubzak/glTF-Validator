@@ -113,6 +113,7 @@
 |KHR_ANIMATION_POINTER_INVALID_ACCESSOR|Output accessor format '`%1`' is incompatible with animation pointer type '`%2`'.|Error|
 |KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
+|KHR_CHARACTER_EXPRESSION_MAPPING_MISSING_OPERATION|At least one character expression mapping operation must be defined.|Error|
 |KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
 |KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
 |KHR_CHARACTER_MAPPING_SET_IDENTIFIER_NOT_ABSOLUTE|Mapping-set identifier '`%1`' must be an absolute URI.|Error|
