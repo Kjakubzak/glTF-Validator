@@ -444,6 +444,10 @@ class SemanticError extends IssueType {
       'NON_REQUIRED_EXTENSION',
       (args) => 'Extension ${_q(args[0])} cannot be optional.');
 
+  static final SemanticError prohibitedExtensionRequired = SemanticError._(
+      'PROHIBITED_EXTENSION_REQUIRED',
+      (args) => 'Extension ${_q(args[0])} cannot be required.');
+
   static final SemanticError invalidExtensionNameFormat = SemanticError._(
       'INVALID_EXTENSION_NAME_FORMAT',
       (args) => 'Extension name has invalid format.',

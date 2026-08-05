@@ -66,12 +66,14 @@ export 'package:gltf/src/ext/KHR_xmp_json_ld/khr_xmp_json_ld.dart';
 
 class Extension {
   const Extension(this.name, this.functions,
-      {this.init, this.required = false});
+      {this.init, this.required = false, this.disallowRequired = false})
+      : assert(!required || !disallowRequired);
 
   final String name;
   final Map<Type, ExtensionDescriptor> functions;
   final void Function(Context) init;
   final bool required;
+  final bool disallowRequired;
 }
 
 class ExtensionDescriptor {

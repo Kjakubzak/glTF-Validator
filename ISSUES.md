@@ -81,6 +81,7 @@
 |NON_OBJECT_EXTRAS|Prefer JSON Objects for extras.|Information|
 |NON_RELATIVE_URI|Non-relative URI found: '`%1`'.|Warning|
 |NON_REQUIRED_EXTENSION|Extension '`%1`' cannot be optional.|Error|
+|PROHIBITED_EXTENSION_REQUIRED|Extension '`%1`' cannot be required.|Error|
 |ROTATION_NON_UNIT|Rotation quaternion must be normalized.|Error|
 |SKIN_NO_COMMON_ROOT|Joints do not have a common root.|Error|
 |SKIN_SKELETON_INVALID|Skeleton node is not a common root.|Error|

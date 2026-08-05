@@ -207,6 +207,15 @@ class Context {
             name: '/$EXTENSIONS_USED/$i', args: [extensionName]);
       }
 
+      if (validate && extension.disallowRequired) {
+        final requiredIndex = extensionsRequired.indexOf(extensionName);
+        if (requiredIndex != -1) {
+          addIssue(SemanticError.prohibitedExtensionRequired,
+              name: '/$EXTENSIONS_REQUIRED/$requiredIndex',
+              args: [extensionName]);
+        }
+      }
+
       _extensionsLoaded.add(extensionName);
     }
 

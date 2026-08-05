@@ -1360,10 +1360,12 @@ const Extension khrCharacterReferencePoseExtension =
   Animation: ExtensionDescriptor(KhrCharacterReferencePose.fromMap),
 });
 
-const Extension khrNodeCameraHintExtension =
-    Extension(KHR_NODE_CAMERA_HINT, <Type, ExtensionDescriptor>{
-  Node: ExtensionDescriptor(KhrNodeCameraHint.fromMap),
-});
+const Extension khrNodeCameraHintExtension = Extension(
+    KHR_NODE_CAMERA_HINT,
+    <Type, ExtensionDescriptor>{
+      Node: ExtensionDescriptor(KhrNodeCameraHint.fromMap),
+    },
+    disallowRequired: true);
 
 const Extension khrNodeLookAtTargetExtension =
     Extension(KHR_NODE_LOOKAT_TARGET, <Type, ExtensionDescriptor>{

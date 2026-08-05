@@ -195,6 +195,63 @@ Future<void> main() async {
         contains(LinkError.khrNodeCameraHintSelfReference));
   });
 
+  test('passive camera hints cannot be required', () async {
+    final map = await loadMap();
+    map['extensionsRequired'] = <Object>[KHR_NODE_CAMERA_HINT];
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(SemanticError.prohibitedExtensionRequired));
+  });
+
+  test('marker and visibility hints may be required', () async {
+    final map = await loadMap();
+    map['extensionsRequired'] = <Object>[
+      KHR_NODE_LOOKAT_TARGET,
+      KHR_NODE_VISIBILITY_HINT,
+      KHR_MESH_PRIMITIVE_VISIBILITY_HINT
+    ];
+    final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
+    (node['extensions'] as Map<String, Object>)[KHR_NODE_LOOKAT_TARGET] =
+        <String, Object>{};
+
+    final reader = await readMap(map);
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('hint roles, labels, and advisory text are nonempty', () async {
+    final map = await loadMap();
+    final nodes = map['nodes'] as List<Object>;
+    final cameraExtensions =
+        (nodes[0] as Map<String, Object>)['extensions'] as Map<String, Object>;
+    (cameraExtensions[KHR_NODE_CAMERA_HINT] as Map<String, Object>)
+      ..['role'] = ''
+      ..['label'] = '';
+    final lookAtExtensions =
+        (nodes[1] as Map<String, Object>)['extensions'] as Map<String, Object>;
+    (lookAtExtensions[KHR_NODE_LOOKAT_TARGET] as Map<String, Object>)['hint'] =
+        '';
+    final visibilityExtensions =
+        (nodes[2] as Map<String, Object>)['extensions'] as Map<String, Object>;
+    (visibilityExtensions[KHR_NODE_VISIBILITY_HINT] as Map<String, Object>)
+      ..['role'] = ''
+      ..['label'] = '';
+    final mesh = (map['meshes'] as List<Object>)[0] as Map<String, Object>;
+    final primitive =
+        (mesh['primitives'] as List<Object>)[0] as Map<String, Object>;
+    final primitiveExtensions = primitive['extensions'] as Map<String, Object>;
+    (primitiveExtensions[KHR_MESH_PRIMITIVE_VISIBILITY_HINT]
+        as Map<String, Object>)
+      ..['role'] = ''
+      ..['label'] = '';
+
+    final reader = await readMap(map);
+    expect(
+        reader.context.issues
+            .where((issue) => issue.type == SchemaError.patternMismatch),
+        hasLength(7));
+  });
+
   test('root, animation, channel, skeleton, camera, and node indices resolve',
       () async {
     final map = await loadMap();
