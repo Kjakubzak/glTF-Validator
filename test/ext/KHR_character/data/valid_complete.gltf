@@ -52,7 +52,7 @@
     },
     "KHR_character_skeleton_mapping": {
       "skeletalRigMappings": {
-        "example": {
+        "https://example.com/skeleton/v1": {
           "joint": { "node": 1, "name": "Joint" }
         }
       }

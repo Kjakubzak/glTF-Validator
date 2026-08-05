@@ -45,6 +45,14 @@ const String HINT = 'hint';
 
 final RegExp _nonEmpty = RegExp('.+');
 
+bool _isAbsoluteUri(String value) {
+  try {
+    return Uri.parse(value).isAbsolute;
+  } on FormatException {
+    return false;
+  }
+}
+
 void _withPath(Context context, Iterable<String> path, void Function() action) {
   final previousPath = context.path.toList(growable: false);
   context.path
@@ -573,13 +581,28 @@ class KhrCharacterSkeletonMapping extends GltfProperty {
     final rigs = getMap(map, SKELETAL_RIG_MAPPINGS, context, req: true);
     if (rigs != null) {
       context.path.add(SKELETAL_RIG_MAPPINGS);
+      if (rigs.isEmpty) {
+        context.addIssue(SchemaError.emptyEntity);
+      }
       rigs.forEach((rig, value) {
+        if (!_isAbsoluteUri(rig)) {
+          context.addIssue(
+              LinkError.khrCharacterMappingSetIdentifierNotAbsolute,
+              name: rig,
+              args: [rig]);
+        }
         if (value is Map<String, Object>) {
           final joints =
               <String, KhrCharacterSkeletonMappingJointAssociation>{};
           result[rig] = joints;
           context.path.add(rig);
+          if (value.isEmpty) {
+            context.addIssue(SchemaError.emptyEntity);
+          }
           value.forEach((joint, associationValue) {
+            if (joint.isEmpty) {
+              context.addIssue(SchemaError.emptyEntity, name: joint);
+            }
             if (associationValue is Map<String, Object>) {
               context.path.add(joint);
               final association =

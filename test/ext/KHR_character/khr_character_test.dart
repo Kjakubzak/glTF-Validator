@@ -12,6 +12,7 @@ import 'package:test/test.dart';
 
 Future<void> main() async {
   const path = 'test/ext/KHR_character/data/valid_complete.gltf';
+  const skeletonSet = 'https://example.com/skeleton/v1';
 
   Future<Map<String, Object>> loadMap() async =>
       (jsonDecode(await File(path).readAsString()) as Map)
@@ -64,9 +65,9 @@ Future<void> main() async {
         'customSmile');
     final skeleton = result.gltf.extensions[KHR_CHARACTER_SKELETON_MAPPING]
         as KhrCharacterSkeletonMapping;
-    expect(skeleton.skeletalRigMappings['example']['joint'].node,
+    expect(skeleton.skeletalRigMappings[skeletonSet]['joint'].node,
         same(result.gltf.nodes[1]));
-    expect(skeleton.skeletalRigMappings['example']['joint'].name, 'Joint');
+    expect(skeleton.skeletalRigMappings[skeletonSet]['joint'].name, 'Joint');
     expect(result.gltf.animations[1].extensions[KHR_CHARACTER_REFERENCE_POSE],
         isA<KhrCharacterReferencePose>());
     expect(result.gltf.nodes[0].extensions[KHR_NODE_CAMERA_HINT],
@@ -137,7 +138,7 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     skeleton['skeletalRigMappings'] = <String, Object>{
-      'example': <String, Object>{
+      skeletonSet: <String, Object>{
         'joint': <String, Object>{'node': 99}
       }
     };
@@ -206,7 +207,7 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
-    final joints = rigs['example'] as Map<String, Object>;
+    final joints = rigs[skeletonSet] as Map<String, Object>;
     (joints['joint'] as Map<String, Object>)['name'] = 'wrongNodeName';
 
     final reader = await readMap(map);
@@ -236,7 +237,7 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
-    final joints = rigs['example'] as Map<String, Object>;
+    final joints = rigs[skeletonSet] as Map<String, Object>;
     (joints['joint'] as Map<String, Object>).remove('name');
 
     final reader = await readMap(map);
@@ -308,13 +309,14 @@ Future<void> main() async {
     expect(reader.context.errors.length, greaterThanOrEqualTo(3));
   });
 
-  test('empty mapping and skeleton dictionaries remain valid', () async {
+  test('empty skeleton dictionaries are rejected', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
-    (extensions[KHR_CHARACTER_EXPRESSION_MAPPING]
-        as Map<String, Object>)['expressionSetMappings'] = <String, Object>{};
+    (extensions[KHR_CHARACTER_SKELETON_MAPPING]
+        as Map<String, Object>)['skeletalRigMappings'] = <String, Object>{};
     final reader = await readMap(map);
-    expect(reader.context.errors, isEmpty);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(SchemaError.emptyEntity));
   });
 
   test('skeleton mappings use conventional glTF index parsing', () async {
@@ -323,7 +325,7 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     skeleton['skeletalRigMappings'] = <String, Object>{
-      'example': <String, Object>{
+      skeletonSet: <String, Object>{
         'joint': <String, Object>{'node': 1.0}
       }
     };
@@ -337,11 +339,30 @@ Future<void> main() async {
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     skeleton['skeletalRigMappings'] = <String, Object>{
-      'example': <String, Object>{'joint': 1}
+      skeletonSet: <String, Object>{'joint': 1}
     };
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
         contains(SchemaError.typeMismatch));
+  });
+
+  test('skeleton mappings require absolute set URIs and nonempty roles',
+      () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final skeleton =
+        extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
+    skeleton['skeletalRigMappings'] = <String, Object>{
+      'relative-profile': <String, Object>{
+        '': <String, Object>{'node': 1}
+      }
+    };
+
+    final reader = await readMap(map);
+    final issues = reader.context.issues.map((issue) => issue.type);
+    expect(issues,
+        contains(LinkError.khrCharacterMappingSetIdentifierNotAbsolute));
+    expect(issues, contains(SchemaError.emptyEntity));
   });
 
   test('reference poses require nonempty labels and static TRS channels',

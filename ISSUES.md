@@ -115,6 +115,7 @@
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
 |KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
 |KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
+|KHR_CHARACTER_MAPPING_SET_IDENTIFIER_NOT_ABSOLUTE|Mapping-set identifier '`%1`' must be an absolute URI.|Error|
 |KHR_CHARACTER_REFERENCE_NAME_MISMATCH|Reference name '`%1`' does not exactly match the referenced object name '`%2`'.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_INPUT_COUNT|A reference-pose sampler input accessor must contain exactly one element. Found `%1`.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_INVALID_INTERPOLATION|A reference-pose sampler must use LINEAR or STEP interpolation. Found '`%1`'.|Error|

@@ -739,6 +739,12 @@ class LinkError extends IssueType {
           (args) => 'Texture expression channel must target the offset, scale, '
               'or rotation property of a KHR_texture_transform object.');
 
+  static final LinkError khrCharacterMappingSetIdentifierNotAbsolute =
+      LinkError._(
+          'KHR_CHARACTER_MAPPING_SET_IDENTIFIER_NOT_ABSOLUTE',
+          (args) => 'Mapping-set identifier ${_q(args[0])} must be an '
+              'absolute URI.');
+
   static final LinkError khrCharacterReferenceNameMismatch = LinkError._(
       'KHR_CHARACTER_REFERENCE_NAME_MISMATCH',
       (args) => 'Reference name ${_q(args[0])} does not exactly match the '
