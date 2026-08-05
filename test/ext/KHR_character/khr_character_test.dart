@@ -13,6 +13,8 @@ import 'package:test/test.dart';
 
 Future<void> main() async {
   const path = 'test/ext/KHR_character/data/valid_complete.gltf';
+  const recognitionPath =
+      'test/ext/KHR_character/data/invalid_recognition.gltf';
   const expressionSet = 'https://example.com/expressions/v1';
   const skeletonSet = 'https://example.com/skeleton/v1';
 
@@ -150,6 +152,15 @@ Future<void> main() async {
         result.gltf.meshes[0].primitives[0]
             .extensions[KHR_MESH_PRIMITIVE_VISIBILITY_HINT],
         isA<KhrMeshPrimitiveVisibilityHint>());
+  });
+
+  test('invalid character assets emit a character-specific diagnostic',
+      () async {
+    final reader = GltfJsonReader(File(recognitionPath).openRead());
+    await reader.read();
+
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionNonConcreteTarget));
   });
 
   test('character has no XMP dependency', () async {
