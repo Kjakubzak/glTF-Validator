@@ -15,8 +15,7 @@
     "KHR_node_camera_hint",
     "KHR_node_lookat_target",
     "KHR_node_visibility_hint",
-    "KHR_texture_transform",
-    "KHR_xmp_json_ld"
+    "KHR_texture_transform"
   ],
   "extensions": {
     "KHR_character": { "rootNode": 0 },

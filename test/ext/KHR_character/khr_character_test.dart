@@ -81,13 +81,13 @@ Future<void> main() async {
         isA<KhrMeshPrimitiveVisibilityHint>());
   });
 
-  test('character requires the XMP declaration but not an XMP object',
-      () async {
+  test('character has no XMP dependency', () async {
     final map = await loadMap();
-    (map['extensionsUsed'] as List<Object>).remove(KHR_XMP_JSON_LD);
     final reader = await readMap(map);
-    expect(reader.context.issues.map((issue) => issue.type),
-        contains(SchemaError.unsatisfiedDependency));
+    expect(
+        reader.context.issues
+            .where((issue) => issue.type == SchemaError.unsatisfiedDependency),
+        isEmpty);
   });
 
   test('expression channels resolve against the selected animation', () async {

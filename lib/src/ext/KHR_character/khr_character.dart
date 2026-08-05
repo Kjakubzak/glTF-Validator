@@ -77,7 +77,6 @@ class KhrCharacter extends GltfProperty {
 
   @override
   void link(Gltf gltf, Context context) {
-    _requireUsed(gltf, context, KHR_XMP_JSON_LD);
     _rootNode = gltf.nodes[rootNodeIndex];
     if (rootNodeIndex != -1) {
       if (_rootNode == null) {
