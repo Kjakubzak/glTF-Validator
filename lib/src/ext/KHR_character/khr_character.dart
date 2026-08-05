@@ -4,8 +4,11 @@
 
 library gltf.extensions.khr_character;
 
+import 'dart:math' as math;
+
 import 'package:gltf/src/base/gltf_property.dart';
 import 'package:gltf/src/ext/extensions.dart';
+import 'package:gltf/src/gl.dart' as gl;
 
 const String KHR_CHARACTER = 'KHR_character';
 const String KHR_CHARACTER_EXPRESSION = 'KHR_character_expression';
@@ -49,6 +52,26 @@ final RegExp _nonEmpty = RegExp('.+');
 final RegExp _maskType =
     RegExp(r'^(?:blend|block|[A-Z0-9]+_[a-z0-9]+(?:_[a-z0-9]+)*)$');
 
+const Set<String> _coreExpressionPaths = <String>{
+  TRANSLATION,
+  ROTATION,
+  SCALE,
+  WEIGHTS
+};
+
+const Set<String> _textureTransformExpressionProperties = <String>{
+  OFFSET,
+  SCALE,
+  ROTATION
+};
+
+class _ExpressionInitialTarget {
+  final List<double> value;
+  final bool quaternion;
+
+  const _ExpressionInitialTarget(this.value, {this.quaternion = false});
+}
+
 bool _isAbsoluteUri(String value) {
   try {
     return Uri.parse(value).isAbsolute;
@@ -69,6 +92,171 @@ void _withPath(Context context, Iterable<String> path, void Function() action) {
       ..clear()
       ..addAll(previousPath);
   }
+}
+
+bool _isTextureTransformPointer(KhrAnimationPointer pointer) {
+  final segments = pointer?.property?.template?.split('/');
+  return segments != null &&
+      segments.length >= 3 &&
+      segments[segments.length - 2] == KHR_TEXTURE_TRANSFORM &&
+      _textureTransformExpressionProperties.contains(segments.last);
+}
+
+List<double> _nodeWeights(Node node) {
+  final count = node?.mesh?.morphTargetsCount ?? 0;
+  if (count == 0) {
+    return null;
+  }
+  return (node?.weights ?? node?.mesh?.weights ?? List<double>.filled(count, 0))
+      ?.toList(growable: false);
+}
+
+_ExpressionInitialTarget _nodeExpressionInitialTarget(Node node, String path) {
+  if (node == null) {
+    return null;
+  }
+  switch (path) {
+    case TRANSLATION:
+      return _ExpressionInitialTarget(<double>[
+        node.translation?.x ?? 0,
+        node.translation?.y ?? 0,
+        node.translation?.z ?? 0
+      ]);
+    case ROTATION:
+      return _ExpressionInitialTarget(<double>[
+        node.rotation?.x ?? 0,
+        node.rotation?.y ?? 0,
+        node.rotation?.z ?? 0,
+        node.rotation?.w ?? 1
+      ], quaternion: true);
+    case SCALE:
+      return _ExpressionInitialTarget(
+          <double>[node.scale?.x ?? 1, node.scale?.y ?? 1, node.scale?.z ?? 1]);
+    case WEIGHTS:
+      final weights = _nodeWeights(node);
+      return weights == null ? null : _ExpressionInitialTarget(weights);
+  }
+  return null;
+}
+
+_ExpressionInitialTarget _coreExpressionInitialTarget(
+        AnimationChannelTarget target) =>
+    _nodeExpressionInitialTarget(target?.node, target?.path);
+
+_ExpressionInitialTarget _pointerExpressionInitialTarget(
+    Gltf gltf, KhrAnimationPointer pointer) {
+  final template = pointer?.property?.template;
+  final tokens = pointer?.decodedTokens;
+  if (template == null || tokens == null) {
+    return null;
+  }
+
+  if (template == '/nodes/{}/translation' ||
+      template == '/nodes/{}/rotation' ||
+      template == '/nodes/{}/scale') {
+    final nodeIndex = tokens.length > 1 ? int.tryParse(tokens[1]) : null;
+    final node = nodeIndex == null ? null : gltf.nodes[nodeIndex];
+    if (node == null) {
+      return null;
+    }
+    final path = template.substring(template.lastIndexOf('/') + 1);
+    return _nodeExpressionInitialTarget(node, path);
+  }
+
+  if (template == '/nodes/{}/weights' || template == '/nodes/{}/weights/{}') {
+    final nodeIndex = tokens.length > 1 ? int.tryParse(tokens[1]) : null;
+    final node = nodeIndex == null ? null : gltf.nodes[nodeIndex];
+    final weights = _nodeWeights(node);
+    if (weights == null) {
+      return null;
+    }
+    if (template.endsWith('/{}')) {
+      final weightIndex = tokens.length > 3 ? int.tryParse(tokens[3]) : null;
+      if (weightIndex == null || weightIndex >= weights.length) {
+        return null;
+      }
+      return _ExpressionInitialTarget(<double>[weights[weightIndex]]);
+    }
+    return _ExpressionInitialTarget(weights);
+  }
+
+  if (_isTextureTransformPointer(pointer)) {
+    final indices = pointer.property.match(pointer.pointer);
+    if (indices == null) {
+      return null;
+    }
+    final resolvedTarget = pointer.property.resolve(gltf, indices).target;
+    if (resolvedTarget is! KhrTextureTransform) {
+      return null;
+    }
+    final transform = resolvedTarget as KhrTextureTransform;
+    switch (template.substring(template.lastIndexOf('/') + 1)) {
+      case OFFSET:
+        return _ExpressionInitialTarget(transform.offset);
+      case SCALE:
+        return _ExpressionInitialTarget(transform.scale);
+      case ROTATION:
+        return _ExpressionInitialTarget(<double>[transform.rotation]);
+    }
+  }
+  return null;
+}
+
+double _expressionAccessorAllowance(Accessor accessor) {
+  if (accessor?.normalized != true) {
+    return 0;
+  }
+  switch (accessor.componentType) {
+    case gl.BYTE:
+      return 0.5 / 127;
+    case gl.UNSIGNED_BYTE:
+      return 0.5 / 255;
+    case gl.SHORT:
+      return 0.5 / 32767;
+    case gl.UNSIGNED_SHORT:
+      return 0.5 / 65535;
+  }
+  return 0;
+}
+
+List<double> _decodedExpressionOutput(Accessor accessor) => (accessor.normalized
+        ? accessor.getElementsNormalized()
+        : accessor.getElements().map((value) => value.toDouble()))
+    .toList(growable: false);
+
+bool _expressionInitialValuesEquivalent(List<double> authored,
+    List<double> sampled, Accessor accessor, bool quaternion) {
+  if (authored.length != sampled.length) {
+    return false;
+  }
+  final allowance = _expressionAccessorAllowance(accessor);
+  if (quaternion) {
+    if (authored.length != 4) {
+      return false;
+    }
+    final authoredLength = math
+        .sqrt(authored.fold<double>(0, (sum, value) => sum + value * value));
+    final sampledLength =
+        math.sqrt(sampled.fold<double>(0, (sum, value) => sum + value * value));
+    if (authoredLength == 0 || sampledLength == 0) {
+      return false;
+    }
+    var dot = 0.0;
+    for (var i = 0; i < 4; ++i) {
+      dot += authored[i] * sampled[i] / (authoredLength * sampledLength);
+    }
+    final quaternionAllowance = 8 * allowance * allowance;
+    return 1 - dot.abs() <= 1e-6 + quaternionAllowance;
+  }
+
+  for (var i = 0; i < authored.length; ++i) {
+    final a = authored[i];
+    final b = sampled[i];
+    if ((a - b).abs() > 1e-6 + allowance + 1e-6 * math.max(a.abs(), b.abs())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void _requireUsed(Gltf gltf, Context context, String extension) {
@@ -294,6 +482,7 @@ class KhrCharacterExpressionEntry extends GltfProperty {
   final String expression;
   final int animationIndex;
   Animation _animation;
+  bool _hasIncompleteTargets = false;
   Animation get animation => _animation;
 
   KhrCharacterExpressionEntry._(this.expression, this.animationIndex,
@@ -307,7 +496,7 @@ class KhrCharacterExpressionEntry extends GltfProperty {
     }
     final extensions = getExtensions(map, KhrCharacterExpressionEntry, context);
     final result = KhrCharacterExpressionEntry._(
-        getString(map, EXPRESSION, context, req: true),
+        getString(map, EXPRESSION, context, req: true, regexp: _nonEmpty),
         getIndex(map, ANIMATION, context),
         extensions,
         getExtras(map, context));
@@ -325,6 +514,7 @@ class KhrCharacterExpressionEntry extends GltfProperty {
       }
     } else {
       _animation.markAsUsed();
+      _validateResponseAnimation(gltf, context);
     }
     context.path.add(EXTENSIONS);
     extensions.forEach((name, extension) {
@@ -334,6 +524,7 @@ class KhrCharacterExpressionEntry extends GltfProperty {
           extension.linkExpression(gltf, _animation, context, (channel) {
             final path = channel.target?.path;
             return channel.target?.node != null &&
+                channel.target.node.matrix == null &&
                 (path == TRANSLATION || path == ROTATION || path == SCALE);
           });
         }
@@ -341,13 +532,13 @@ class KhrCharacterExpressionEntry extends GltfProperty {
         if (_animation != null) {
           extension.linkExpression(gltf, _animation, context, (channel) {
             if (channel.target?.path == WEIGHTS &&
-                channel.target?.node != null) {
+                channel.target?.node?.mesh?.morphTargetsCount != 0) {
               return true;
             }
             final pointer = channel.target?.extensions[KHR_ANIMATION_POINTER];
             return pointer is KhrAnimationPointer &&
-                pointer.property?.template?.startsWith('/nodes/{}/weights') ==
-                    true;
+                (pointer.property?.template == '/nodes/{}/weights' ||
+                    pointer.property?.template == '/nodes/{}/weights/{}');
           });
         }
       } else if (extension is KhrCharacterExpressionTexture) {
@@ -357,9 +548,7 @@ class KhrCharacterExpressionEntry extends GltfProperty {
           extension.linkExpression(gltf, _animation, context, (channel) {
             final pointer = channel.target?.extensions[KHR_ANIMATION_POINTER];
             return pointer is KhrAnimationPointer &&
-                pointer.property?.template
-                        ?.contains('/extensions/KHR_texture_transform/') ==
-                    true;
+                _isTextureTransformPointer(pointer);
           },
               invalidTarget:
                   LinkError.khrCharacterInvalidTextureExpressionPointer);
@@ -370,10 +559,104 @@ class KhrCharacterExpressionEntry extends GltfProperty {
       context.path.removeLast();
     });
     context.path.removeLast();
+    _validateClassifierOverlap(context);
+  }
+
+  void _validateResponseAnimation(Gltf gltf, Context context) {
+    final referencedSamplers = <AnimationSampler>{};
+    _withPath(context, <String>[ANIMATIONS, animationIndex.toString()], () {
+      context.path.add(CHANNELS);
+      _animation.channels?.forEachWithIndices((index, channel) {
+        context.path.add(index.toString());
+        if (channel?.sampler != null) {
+          referencedSamplers.add(channel.sampler);
+        }
+
+        final target = channel?.target;
+        if (target != null) {
+          final isCoreTarget = target.nodeIndex != -1 &&
+              _coreExpressionPaths.contains(target.path);
+          final pointer = target.extensions[KHR_ANIMATION_POINTER];
+          if (isCoreTarget) {
+            // Core animation linking validates the concrete node and property.
+          } else if (pointer is KhrAnimationPointer) {
+            if (pointer.decodedTokens?.contains(EXTRAS) == true) {
+              context.addIssue(LinkError.khrCharacterExpressionExtrasTarget,
+                  name: TARGET);
+            } else if (pointer.property == null) {
+              context.addIssue(
+                  LinkError.khrCharacterExpressionNonConcreteTarget,
+                  name: TARGET);
+            } else if (_pointerExpressionInitialTarget(gltf, pointer) == null) {
+              _hasIncompleteTargets = true;
+              context.addIssue(
+                  LinkError.khrCharacterExpressionValidationIncomplete,
+                  name: TARGET);
+            }
+          } else if (target.extensions.isNotEmpty) {
+            _hasIncompleteTargets = true;
+            context.addIssue(
+                LinkError.khrCharacterExpressionValidationIncomplete,
+                name: TARGET);
+          } else {
+            context.addIssue(LinkError.khrCharacterExpressionNonConcreteTarget,
+                name: TARGET);
+          }
+        }
+        context.path.removeLast();
+      });
+      context.path.removeLast();
+
+      context.path.add(SAMPLERS);
+      for (final sampler in referencedSamplers) {
+        final samplerIndex = _animation.samplers.indexOf(sampler);
+        context.path.add(samplerIndex.toString());
+        if (sampler.input != null && sampler.input.count < 2) {
+          context.addIssue(LinkError.khrCharacterExpressionSamplerTooFewKeys,
+              name: INPUT, args: [sampler.input.count]);
+        }
+        context.path.removeLast();
+      }
+      context.path.removeLast();
+    });
+  }
+
+  void _validateClassifierOverlap(Context context) {
+    final seen = <int, String>{};
+    final classifiers = <String, KhrCharacterExpressionChannelSet>{
+      for (final name in const <String>[
+        KHR_CHARACTER_EXPRESSION_JOINT,
+        KHR_CHARACTER_EXPRESSION_MORPHTARGET,
+        KHR_CHARACTER_EXPRESSION_TEXTURE
+      ])
+        if (extensions[name] is KhrCharacterExpressionChannelSet)
+          name: extensions[name] as KhrCharacterExpressionChannelSet
+    };
+    context.path.add(EXTENSIONS);
+    classifiers.forEach((name, classifier) {
+      context.path
+        ..add(name)
+        ..add(CHANNELS);
+      for (var i = 0; i < (classifier.channelIndices?.length ?? 0); ++i) {
+        final channelIndex = classifier.channelIndices[i];
+        final previous = seen[channelIndex];
+        if (previous != null && previous != name) {
+          context.addIssue(LinkError.khrCharacterExpressionClassifierOverlap,
+              index: i, args: [channelIndex, previous]);
+        } else {
+          seen[channelIndex] = name;
+        }
+      }
+      context.path
+        ..removeLast()
+        ..removeLast();
+    });
+    context.path.removeLast();
   }
 }
 
-class KhrCharacterExpression extends GltfProperty {
+class KhrCharacterExpression extends GltfProperty
+    implements ResourceValidatable {
   final SafeList<KhrCharacterExpressionEntry> expressions;
 
   KhrCharacterExpression._(
@@ -416,6 +699,74 @@ class KhrCharacterExpression extends GltfProperty {
       context.path.removeLast();
     });
     context.path.removeLast();
+  }
+
+  @override
+  void validateResources(Gltf gltf, Context context) {
+    expressions.forEachWithIndices((expressionIndex, expression) {
+      final animation = expression?.animation;
+      if (animation == null) {
+        return;
+      }
+      var incompleteReported = expression._hasIncompleteTargets;
+      animation.channels?.forEachWithIndices((channelIndex, channel) {
+        final sampler = channel?.sampler;
+        final input = sampler?.input;
+        final output = sampler?.output;
+        if (input == null || output == null) {
+          return;
+        }
+        final path = <String>[
+          EXTENSIONS,
+          KHR_CHARACTER_EXPRESSION,
+          EXPRESSIONS,
+          expressionIndex.toString(),
+          ANIMATION
+        ];
+        _withPath(context, path, () {
+          if (input.getElements().length < input.count) {
+            if (!incompleteReported) {
+              context.addIssue(
+                  LinkError.khrCharacterExpressionValidationIncomplete);
+              incompleteReported = true;
+            }
+            return;
+          }
+
+          final target = channel.target;
+          final pointer = target?.extensions[KHR_ANIMATION_POINTER];
+          final initial = target != null &&
+                  target.nodeIndex != -1 &&
+                  _coreExpressionPaths.contains(target.path)
+              ? _coreExpressionInitialTarget(target)
+              : pointer is KhrAnimationPointer
+                  ? _pointerExpressionInitialTarget(gltf, pointer)
+                  : null;
+          if (initial == null) {
+            return;
+          }
+
+          final values = _decodedExpressionOutput(output);
+          final start =
+              sampler.interpolation == CUBICSPLINE ? initial.value.length : 0;
+          if (values.length < start + initial.value.length) {
+            if (!incompleteReported) {
+              context.addIssue(
+                  LinkError.khrCharacterExpressionValidationIncomplete);
+              incompleteReported = true;
+            }
+            return;
+          }
+          final sample = values.sublist(start, start + initial.value.length);
+          if (!_expressionInitialValuesEquivalent(
+              initial.value, sample, output, initial.quaternion)) {
+            context.addIssue(
+                DataError.khrCharacterExpressionInitialValueMismatch,
+                args: [channelIndex]);
+          }
+        });
+      });
+    });
   }
 }
 

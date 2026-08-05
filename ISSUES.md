@@ -113,7 +113,12 @@
 |KHR_ANIMATION_POINTER_INVALID_ACCESSOR|Output accessor format '`%1`' is incompatible with animation pointer type '`%2`'.|Error|
 |KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
+|KHR_CHARACTER_EXPRESSION_CLASSIFIER_OVERLAP|Expression animation channel `%1` is already classified by '`%2`'.|Error|
+|KHR_CHARACTER_EXPRESSION_EXTRAS_TARGET|Expression animation channels must not target extras.|Error|
 |KHR_CHARACTER_EXPRESSION_MAPPING_MISSING_OPERATION|At least one character expression mapping operation must be defined.|Error|
+|KHR_CHARACTER_EXPRESSION_NON_CONCRETE_TARGET|Expression animation channel does not resolve to a concrete mutable Asset Object Model property.|Error|
+|KHR_CHARACTER_EXPRESSION_SAMPLER_TOO_FEW_KEYS|Expression animation sampler input must contain at least two keys. Found `%1`.|Error|
+|KHR_CHARACTER_EXPRESSION_VALIDATION_INCOMPLETE|Expression response validation is incomplete because a target or referenced resource could not be interpreted.|Information|
 |KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
 |KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
 |KHR_CHARACTER_MAPPING_SET_IDENTIFIER_NOT_ABSOLUTE|Mapping-set identifier '`%1`' must be an absolute URI.|Error|
@@ -190,6 +195,7 @@
 |IMAGE_UNEXPECTED_EOS|Unexpected end of image stream.|Error|
 |IMAGE_UNRECOGNIZED_FORMAT|Image format not recognized.|Warning|
 |KHR_ANIMATION_POINTER_VALUE_OUT_OF_RANGE|Animation pointer output element `%1`, component `%2` contains an invalid value: `%3`.|Error|
+|KHR_CHARACTER_EXPRESSION_INITIAL_VALUE_MISMATCH|Expression animation channel `%1` does not sample its authored initial property value at time zero.|Error|
 |URI_GLB|URI is used in GLB container.|Information|
 ## GlbError
 | Code | Message | Severity |

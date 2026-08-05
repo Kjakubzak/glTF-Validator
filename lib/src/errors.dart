@@ -133,6 +133,12 @@ class DataError extends IssueType {
       (args) => 'Animation pointer output element ${args[0]}, component '
           '${args[1]} contains an invalid value: ${args[2]}.');
 
+  static final DataError khrCharacterExpressionInitialValueMismatch =
+      DataError._(
+          'KHR_CHARACTER_EXPRESSION_INITIAL_VALUE_MISMATCH',
+          (args) => 'Expression animation channel ${args[0]} does not sample '
+              'its authored initial property value at time zero.');
+
   static final DataError accessorSparseIndicesNonIncreasing = DataError._(
       'ACCESSOR_SPARSE_INDICES_NON_INCREASING',
       (args) => 'Accessor sparse indices element at index ${args[0]} '
@@ -738,6 +744,32 @@ class LinkError extends IssueType {
           'KHR_CHARACTER_EXPRESSION_MAPPING_MISSING_OPERATION',
           (args) => 'At least one character expression mapping operation must '
               'be defined.');
+
+  static final LinkError khrCharacterExpressionClassifierOverlap = LinkError._(
+      'KHR_CHARACTER_EXPRESSION_CLASSIFIER_OVERLAP',
+      (args) => 'Expression animation channel ${args[0]} is already '
+          'classified by ${_q(args[1])}.');
+
+  static final LinkError khrCharacterExpressionExtrasTarget = LinkError._(
+      'KHR_CHARACTER_EXPRESSION_EXTRAS_TARGET',
+      (args) => 'Expression animation channels must not target extras.');
+
+  static final LinkError khrCharacterExpressionNonConcreteTarget = LinkError._(
+      'KHR_CHARACTER_EXPRESSION_NON_CONCRETE_TARGET',
+      (args) => 'Expression animation channel does not resolve to a concrete '
+          'mutable Asset Object Model property.');
+
+  static final LinkError khrCharacterExpressionSamplerTooFewKeys = LinkError._(
+      'KHR_CHARACTER_EXPRESSION_SAMPLER_TOO_FEW_KEYS',
+      (args) => 'Expression animation sampler input must contain at least two '
+          'keys. Found ${args[0]}.');
+
+  static final LinkError khrCharacterExpressionValidationIncomplete =
+      LinkError._(
+          'KHR_CHARACTER_EXPRESSION_VALIDATION_INCOMPLETE',
+          (args) => 'Expression response validation is incomplete because a '
+              'target or referenced resource could not be interpreted.',
+          Severity.Information);
 
   static final LinkError khrCharacterInvalidTextureExpressionPointer =
       LinkError._(

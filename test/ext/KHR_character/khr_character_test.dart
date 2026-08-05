@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:gltf/gltf.dart';
 import 'package:gltf/src/errors.dart';
@@ -24,6 +25,70 @@ Future<void> main() async {
         GltfJsonReader(Stream<List<int>>.value(utf8.encode(jsonEncode(map))));
     await reader.read();
     return reader;
+  }
+
+  Future<GltfJsonReader> readMapWithResources(Map<String, Object> map) async {
+    final reader =
+        GltfJsonReader(Stream<List<int>>.value(utf8.encode(jsonEncode(map))));
+    final result = await reader.read();
+    if (result?.gltf != null) {
+      await ResourcesLoader(reader.context, result.gltf,
+          externalBytesFetch: ([uri]) => null,
+          externalStreamFetch: (uri) => null).load();
+    }
+    return reader;
+  }
+
+  int addFloatAccessor(
+      Map<String, Object> map, List<double> values, String type, int count) {
+    final data = ByteData(values.length * 4);
+    for (var i = 0; i < values.length; ++i) {
+      data.setFloat32(i * 4, values[i], Endian.little);
+    }
+    final buffers = map['buffers'] as List<Object>;
+    final bufferViews = map['bufferViews'] as List<Object>;
+    final accessors = map['accessors'] as List<Object>;
+    final bufferIndex = buffers.length;
+    final bufferViewIndex = bufferViews.length;
+    buffers.add(<String, Object>{
+      'byteLength': data.lengthInBytes,
+      'uri':
+          'data:application/octet-stream;base64,${base64Encode(data.buffer.asUint8List())}'
+    });
+    bufferViews.add(<String, Object>{
+      'buffer': bufferIndex,
+      'byteLength': data.lengthInBytes
+    });
+    accessors.add(<String, Object>{
+      'bufferView': bufferViewIndex,
+      'componentType': 5126,
+      'count': count,
+      'type': type
+    });
+    return accessors.length - 1;
+  }
+
+  int addNormalizedUnsignedByteAccessor(
+      Map<String, Object> map, List<int> values, String type, int count) {
+    final buffers = map['buffers'] as List<Object>;
+    final bufferViews = map['bufferViews'] as List<Object>;
+    final accessors = map['accessors'] as List<Object>;
+    final bufferIndex = buffers.length;
+    final bufferViewIndex = bufferViews.length;
+    buffers.add(<String, Object>{
+      'byteLength': values.length,
+      'uri': 'data:application/octet-stream;base64,${base64Encode(values)}'
+    });
+    bufferViews.add(
+        <String, Object>{'buffer': bufferIndex, 'byteLength': values.length});
+    accessors.add(<String, Object>{
+      'bufferView': bufferViewIndex,
+      'componentType': 5121,
+      'normalized': true,
+      'count': count,
+      'type': type
+    });
+    return accessors.length - 1;
   }
 
   test('complete character family has no extension support diagnostics',
@@ -312,6 +377,245 @@ Future<void> main() async {
         contains(SchemaError.arrayDuplicateElements));
   });
 
+  test('expression labels are nonempty but need not be unique', () async {
+    final invalid = await loadMap();
+    final invalidExpressionRoot =
+        (invalid['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final invalidEntry = (invalidExpressionRoot['expressions']
+        as List<Object>)[0] as Map<String, Object>;
+    invalidEntry['expression'] = '';
+    final invalidReader = await readMap(invalid);
+    expect(invalidReader.context.issues.map((issue) => issue.type),
+        contains(SchemaError.patternMismatch));
+
+    final duplicate = await loadMap();
+    final duplicateExpressionRoot = (duplicate['extensions']
+            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+        as Map<String, Object>;
+    (duplicateExpressionRoot['expressions'] as List<Object>)
+        .add(<String, Object>{'expression': 'customSmile', 'animation': 0});
+    final duplicateReader = await readMap(duplicate);
+    expect(duplicateReader.context.errors, isEmpty);
+  });
+
+  test('every referenced expression sampler has at least two keys', () async {
+    final map = await loadMap();
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    ((animation['samplers'] as List<Object>)[0] as Map<String, Object>)
+      ..['input'] = 0
+      ..['output'] = 1;
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionSamplerTooFewKeys));
+  });
+
+  test('expression channels require concrete property targets', () async {
+    final map = await loadMap();
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    final channel =
+        (animation['channels'] as List<Object>)[0] as Map<String, Object>;
+    channel['target'] = <String, Object>{'path': 'translation'};
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionNonConcreteTarget));
+  });
+
+  test('expression pointer targets cannot resolve into extras', () async {
+    final map = await loadMap();
+    final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
+    node['extras'] = <String, Object>{'expressionValue': 0};
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    final channel =
+        (animation['channels'] as List<Object>)[2] as Map<String, Object>;
+    channel['target'] = <String, Object>{
+      'path': 'pointer',
+      'extensions': <String, Object>{
+        KHR_ANIMATION_POINTER: <String, Object>{
+          'pointer': '/nodes/1/extras/expressionValue'
+        }
+      }
+    };
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionExtrasTarget));
+  });
+
+  test('unsupported expression target semantics are reported as incomplete',
+      () async {
+    final map = await loadMap();
+    final expressionRoot =
+        (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final entry = (expressionRoot['expressions'] as List<Object>)[0]
+        as Map<String, Object>;
+    (entry['extensions'] as Map<String, Object>)
+        .remove(KHR_CHARACTER_EXPRESSION_TEXTURE);
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    final channel =
+        (animation['channels'] as List<Object>)[2] as Map<String, Object>;
+    channel['target'] = <String, Object>{
+      'path': 'pointer',
+      'extensions': <String, Object>{
+        KHR_ANIMATION_POINTER: <String, Object>{
+          'pointer': '/materials/0/pbrMetallicRoughness/roughnessFactor'
+        }
+      }
+    };
+    ((animation['samplers'] as List<Object>)[2]
+        as Map<String, Object>)['output'] = 9;
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionValidationIncomplete));
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('a channel cannot occur in two typed expression classifiers', () async {
+    final map = await loadMap();
+    final expressionRoot =
+        (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final entry = (expressionRoot['expressions'] as List<Object>)[0]
+        as Map<String, Object>;
+    final entryExtensions = entry['extensions'] as Map<String, Object>;
+    (entryExtensions[KHR_CHARACTER_EXPRESSION_MORPHTARGET]
+        as Map<String, Object>)['channels'] = <Object>[1, 0];
+
+    final reader = await readMap(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionClassifierOverlap));
+  });
+
+  test('unclassified expression channels remain valid', () async {
+    final map = await loadMap();
+    final expressionRoot =
+        (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final entry = (expressionRoot['expressions'] as List<Object>)[0]
+        as Map<String, Object>;
+    (entry['extensions'] as Map<String, Object>)
+        .remove(KHR_CHARACTER_EXPRESSION_JOINT);
+
+    final reader = await readMap(map);
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('complete expression resources satisfy initial-state validation',
+      () async {
+    final reader = await readMapWithResources(await loadMap());
+    final issues = reader.context.issues.map((issue) => issue.type);
+    expect(issues,
+        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
+    expect(issues,
+        isNot(contains(LinkError.khrCharacterExpressionValidationIncomplete)));
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('expression samples must begin at the authored initial state', () async {
+    final map = await loadMap();
+    final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
+    node['translation'] = <Object>[1, 0, 0];
+
+    final reader = await readMapWithResources(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(DataError.khrCharacterExpressionInitialValueMismatch));
+  });
+
+  test('opposite-sign quaternions are equivalent initial values', () async {
+    final map = await loadMap();
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    final channel =
+        (animation['channels'] as List<Object>)[0] as Map<String, Object>;
+    channel['target'] = <String, Object>{'node': 1, 'path': 'rotation'};
+    final output =
+        addFloatAccessor(map, <double>[0, 0, 0, -1, 0, 0, 0, -1], 'VEC4', 2);
+    ((animation['samplers'] as List<Object>)[0]
+        as Map<String, Object>)['output'] = output;
+
+    final reader = await readMapWithResources(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('cubic expression initial checks use value records, not tangents',
+      () async {
+    final map = await loadMap();
+    final animation =
+        (map['animations'] as List<Object>)[0] as Map<String, Object>;
+    final output = addFloatAccessor(
+        map,
+        <double>[
+          100,
+          100,
+          100,
+          0,
+          0,
+          0,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          0,
+          0,
+          0,
+          100,
+          100,
+          100
+        ],
+        'VEC3',
+        6);
+    ((animation['samplers'] as List<Object>)[0] as Map<String, Object>)
+      ..['output'] = output
+      ..['interpolation'] = 'CUBICSPLINE';
+
+    final reader = await readMapWithResources(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('normalized integer initial values use the specified allowance',
+      () async {
+    for (final encodedValue in <int>[128, 129]) {
+      final map = await loadMap();
+      final node = (map['nodes'] as List<Object>)[2] as Map<String, Object>;
+      node['weights'] = <Object>[0.5];
+      final output = addNormalizedUnsignedByteAccessor(
+          map, <int>[encodedValue, encodedValue], 'SCALAR', 2);
+      final animation =
+          (map['animations'] as List<Object>)[0] as Map<String, Object>;
+      ((animation['samplers'] as List<Object>)[1]
+          as Map<String, Object>)['output'] = output;
+
+      final reader = await readMapWithResources(map);
+      final hasMismatch = reader.context.issues.any((issue) =>
+          issue.type == DataError.khrCharacterExpressionInitialValueMismatch);
+      expect(hasMismatch, encodedValue == 129, reason: '$encodedValue');
+    }
+  });
+
+  test('missing expression resources make validation incomplete', () async {
+    final map = await loadMap();
+    final buffer = (map['buffers'] as List<Object>)[0] as Map<String, Object>;
+    buffer['uri'] = 'missing.bin';
+
+    final reader = await readMapWithResources(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionValidationIncomplete));
+  });
+
   test('mask ranges and open vocabularies are validated', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
@@ -381,9 +685,7 @@ Future<void> main() async {
     final companionMask =
         companionEntryExtensions[KHR_CHARACTER_EXPRESSION_MASK]
             as Map<String, Object>;
-    final companionMaskEntry =
-        (companionMask['masks'] as List<Object>)[0] as Map<String, Object>;
-    companionMaskEntry
+    ((companionMask['masks'] as List<Object>)[0] as Map<String, Object>)
       ..['type'] = 'ACME_expression_mask_curve'
       ..['extensions'] = <String, Object>{
         'ACME_expression_mask_curve': <String, Object>{}
@@ -406,26 +708,25 @@ Future<void> main() async {
   test('mapping accepts either independent direction and rejects neither',
       () async {
     final forwardOnly = await loadMap();
-    final forwardMapping = (forwardOnly['extensions']
-            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-        as Map<String, Object>;
-    forwardMapping.remove('expressionSetInputMappings');
+    ((forwardOnly['extensions']
+                as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+            as Map<String, Object>)
+        .remove('expressionSetInputMappings');
     final forwardReader = await readMap(forwardOnly);
     expect(forwardReader.context.errors, isEmpty);
 
     final inputOnly = await loadMap();
-    final inputMapping = (inputOnly['extensions']
-            as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-        as Map<String, Object>;
-    inputMapping.remove('expressionSetMappings');
+    ((inputOnly['extensions']
+                as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
+            as Map<String, Object>)
+        .remove('expressionSetMappings');
     final inputReader = await readMap(inputOnly);
     expect(inputReader.context.errors, isEmpty);
 
     final neither = await loadMap();
-    final emptyMapping = (neither['extensions']
+    ((neither['extensions']
             as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-        as Map<String, Object>;
-    emptyMapping
+        as Map<String, Object>)
       ..remove('expressionSetMappings')
       ..remove('expressionSetInputMappings');
     final neitherReader = await readMap(neither);
