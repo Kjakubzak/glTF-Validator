@@ -108,7 +108,7 @@ Future main() async {
       final templates = reader.context.animationPointerProperties
           .map((property) => property.template)
           .toSet();
-      expect(templates, hasLength(98));
+      expect(templates, hasLength(99));
       expect(
           templates,
           containsAll(<String>[

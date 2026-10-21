@@ -141,6 +141,22 @@ class KhrAnimationPointer extends GltfProperty {
       ?.map((token) => token.replaceAll('~1', '/').replaceAll('~0', '~'))
       ?.toList(growable: false);
 
+  /// An unknown declared extension may define this target's AOM semantics.
+  bool hasUnsupportedTargetExtensions(Context context) {
+    final tokens = decodedTokens;
+    if (tokens == null) return false;
+    for (var i = 0; i + 1 < tokens.length; ++i) {
+      if (tokens[i] == EXTENSIONS &&
+          context.extensionsUsed.contains(tokens[i + 1]) &&
+          !context.extensionsLoaded.contains(tokens[i + 1])) return true;
+    }
+    // A separate declared extension can define mutable semantics for extras.
+    return tokens.contains(EXTRAS) &&
+        property == null &&
+        context.extensionsUsed
+            .any((name) => !context.extensionsLoaded.contains(name));
+  }
+
   @override
   void link(Gltf gltf, Context context) {
     final target = context.owners[this];
@@ -162,16 +178,6 @@ class KhrAnimationPointer extends GltfProperty {
     }
 
     final tokens = decodedTokens;
-    if (tokens.contains(EXTRAS)) {
-      if (!_jsonPointerExists(context.rootJson, tokens)) {
-        context.addIssue(LinkError.khrAnimationPointerUnresolved,
-            name: POINTER, args: [pointer]);
-      } else {
-        _checkExtrasDuplicateTargets(
-            gltf, animationTarget, _encodeTokens(tokens), context);
-      }
-      return;
-    }
     final canonicalPointer = _encodeTokens(tokens);
     List<int> indices;
     _property = context.animationPointerProperties.firstWhere((candidate) {
@@ -179,6 +185,21 @@ class KhrAnimationPointer extends GltfProperty {
       return indices != null;
     }, orElse: () => null);
     if (_property == null) {
+      if (tokens.contains(EXTRAS) &&
+          _jsonPointerExists(context.rootJson, tokens)) {
+        _checkExtrasDuplicateTargets(
+            gltf, animationTarget, canonicalPointer, context);
+        if (hasUnsupportedTargetExtensions(context)) {
+          context.addIssue(LinkError.incompleteExtensionSupport);
+        }
+        return;
+      }
+      if (hasUnsupportedTargetExtensions(context)) {
+        context.addIssue(LinkError.incompleteExtensionSupport);
+        _checkExtrasDuplicateTargets(
+            gltf, animationTarget, canonicalPointer, context);
+        return;
+      }
       context.addIssue(LinkError.khrAnimationPointerUnresolved,
           name: POINTER, args: [pointer]);
       return;
@@ -555,8 +576,8 @@ final List<AnimationPointerProperty> _coreProperties =
   AnimationPointerProperty(
       '/nodes/{}/translation',
       AnimationPointerValueType.float3,
-      (gltf, i) => AnimationPointerResolution(
-          exists: gltf.nodes[i[0]] != null && gltf.nodes[i[0]].matrix == null)),
+      (gltf, i) =>
+          AnimationPointerResolution(exists: gltf.nodes[i[0]] != null)),
   AnimationPointerProperty(
       '/nodes/{}/rotation',
       AnimationPointerValueType.float4,
@@ -598,6 +619,13 @@ AnimationPointerResolution _punctualLight(Gltf gltf, List<int> indices,
 
 final List<AnimationPointerProperty> _extensionProperties =
     <AnimationPointerProperty>[
+  AnimationPointerProperty('/nodes/{}/extensions/KHR_node_visibility/visible',
+      AnimationPointerValueType.boolean, (gltf, i) {
+    final extension = gltf.nodes[i[0]]?.extensions[KHR_NODE_VISIBILITY];
+    return AnimationPointerResolution(
+        exists: extension is KhrNodeVisibility,
+        target: extension is GltfProperty ? extension : null);
+  }, minimum: 0, maximum: 1),
   AnimationPointerProperty(
       '/extensions/KHR_lights_punctual/lights/{}/color',
       AnimationPointerValueType.float3,

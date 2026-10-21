@@ -22,6 +22,7 @@
         "documentation": "^13.2.5"
     },
     "scripts": {
-        "docs": "documentation readme index.js --quiet=true --shallow -f md --section=API --readme-file ../build/node/README.md"
+        "docs": "documentation readme index.js --quiet=true --shallow -f md --section=API --readme-file ../build/node/README.md",
+        "test": "node --test test-character.cjs"
     }
 }
