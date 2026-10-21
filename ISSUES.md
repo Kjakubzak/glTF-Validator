@@ -115,19 +115,16 @@
 |KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
 |KHR_CHARACTER_EXPRESSION_CLASSIFIER_OVERLAP|Expression animation channel `%1` is already classified by '`%2`'.|Error|
-|KHR_CHARACTER_EXPRESSION_EXTRAS_TARGET|Expression animation channels must not target extras.|Error|
-|KHR_CHARACTER_EXPRESSION_MAPPING_MISSING_OPERATION|At least one character expression mapping operation must be defined.|Error|
 |KHR_CHARACTER_EXPRESSION_NON_CONCRETE_TARGET|Expression animation channel does not resolve to a concrete mutable Asset Object Model property.|Error|
 |KHR_CHARACTER_EXPRESSION_SAMPLER_TOO_FEW_KEYS|Expression animation sampler input must contain at least two keys. Found `%1`.|Error|
 |KHR_CHARACTER_EXPRESSION_VALIDATION_INCOMPLETE|Expression response validation is incomplete because a target or referenced resource could not be interpreted.|Information|
 |KHR_CHARACTER_INVALID_EXPRESSION_TARGET|Animation channel target is incompatible with this character expression type.|Error|
 |KHR_CHARACTER_INVALID_TEXTURE_EXPRESSION_POINTER|Texture expression channel must target the offset, scale, or rotation property of a KHR_texture_transform object.|Error|
-|KHR_CHARACTER_MAPPING_SET_IDENTIFIER_NOT_ABSOLUTE|Mapping-set identifier '`%1`' must be an absolute URI.|Error|
-|KHR_CHARACTER_REFERENCE_NAME_MISMATCH|Reference name '`%1`' does not exactly match the referenced object name '`%2`'.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_INPUT_COUNT|A reference-pose sampler input accessor must contain exactly one element. Found `%1`.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_INVALID_INTERPOLATION|A reference-pose sampler must use LINEAR or STEP interpolation. Found '`%1`'.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_INVALID_TARGET|A reference-pose channel must target an ordinary node translation, rotation, or scale property.|Error|
 |KHR_CHARACTER_REFERENCE_POSE_NO_CHANNELS|A reference-pose animation must contain at least one channel.|Error|
+|KHR_CHARACTER_SUPPRESSION_IGNORED_THRESHOLD|A blend suppression ignores threshold; exporters should omit it.|Warning|
 |KHR_MATERIALS_VARIANTS_NON_UNIQUE_VARIANT|This variant is used more than once for this mesh primitive.|Error|
 |KHR_NODE_CAMERA_HINT_SELF_REFERENCE|Camera hint targetNode must not reference the node containing the extension.|Error|
 |MESH_PRIMITIVE_ACCESSOR_UNALIGNED|Vertex attribute data must be aligned to 4-byte boundaries.|Error|
@@ -196,7 +193,6 @@
 |IMAGE_UNEXPECTED_EOS|Unexpected end of image stream.|Error|
 |IMAGE_UNRECOGNIZED_FORMAT|Image format not recognized.|Warning|
 |KHR_ANIMATION_POINTER_VALUE_OUT_OF_RANGE|Animation pointer output element `%1`, component `%2` contains an invalid value: `%3`.|Error|
-|KHR_CHARACTER_EXPRESSION_INITIAL_VALUE_MISMATCH|Expression animation channel `%1` does not sample its authored initial property value at time zero.|Error|
 |URI_GLB|URI is used in GLB container.|Information|
 ## GlbError
 | Code | Message | Severity |

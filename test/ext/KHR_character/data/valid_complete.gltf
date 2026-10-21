@@ -1,14 +1,16 @@
 {
-  "asset": { "version": "2.0" },
+  "asset": {
+    "version": "2.0"
+  },
   "extensionsUsed": [
     "KHR_animation_pointer",
     "KHR_character",
     "KHR_character_expression",
     "KHR_character_expression_joint",
     "KHR_character_expression_mapping",
-    "KHR_character_expression_mask",
+    "KHR_character_expression_suppression",
     "KHR_character_expression_morphtarget",
-    "KHR_character_expression_texture",
+    "KHR_character_expression_texture_transform",
     "KHR_character_reference_pose",
     "KHR_character_skeleton_mapping",
     "KHR_mesh_primitive_visibility_hint",
@@ -18,21 +20,32 @@
     "KHR_texture_transform"
   ],
   "extensions": {
-    "KHR_character": { "rootNode": 0 },
+    "KHR_character": {},
     "KHR_character_expression": {
       "expressions": [
         {
-          "expression": "customSmile",
+          "name": "customSmile",
           "animation": 0,
           "extensions": {
-            "KHR_character_expression_joint": { "channels": [0] },
-            "KHR_character_expression_morphtarget": { "channels": [1] },
-            "KHR_character_expression_texture": { "channels": [2] },
-            "KHR_character_expression_mask": {
-              "masks": [
+            "KHR_character_expression_joint": {
+              "channels": [
+                0
+              ]
+            },
+            "KHR_character_expression_morphtarget": {
+              "channels": [
+                1
+              ]
+            },
+            "KHR_character_expression_texture_transform": {
+              "channels": [
+                2
+              ]
+            },
+            "KHR_character_expression_suppression": {
+              "suppressions": [
                 {
                   "target": 0,
-                  "name": "customSmile",
                   "type": "CUSTOM_soft_block",
                   "amount": 0.5,
                   "threshold": 0.25
@@ -46,19 +59,23 @@
     "KHR_character_expression_mapping": {
       "expressionSetMappings": {
         "https://example.com/expressions/v1": {
-          "Smile": [{ "source": 0, "name": "customSmile", "weight": 1.0 }]
-        }
-      },
-      "expressionSetInputMappings": {
-        "https://example.com/expressions/v1": {
-          "Smile": [{ "target": 0, "name": "customSmile", "weight": 0.5 }]
+          "Smile": [
+            {
+              "source": 0,
+              "name": "customSmile",
+              "weight": 1.0
+            }
+          ]
         }
       }
     },
     "KHR_character_skeleton_mapping": {
       "skeletalRigMappings": {
         "https://example.com/skeleton/v1": {
-          "joint": { "node": 1, "name": "Joint" }
+          "joint": {
+            "node": 1,
+            "name": "Joint"
+          }
         }
       }
     }
@@ -69,32 +86,129 @@
       "uri": "data:application/octet-stream;base64,AAAAAAAAgD8="
     }
   ],
-  "bufferViews": [{ "buffer": 0, "byteLength": 8 }],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 8
+    }
+  ],
   "accessors": [
-    { "componentType": 5126, "count": 1, "type": "SCALAR", "min": [0], "max": [0] },
-    { "componentType": 5126, "count": 1, "type": "VEC3", "min": [0, 0, 0], "max": [0, 0, 0] },
-    { "componentType": 5126, "count": 1, "type": "VEC3", "min": [0, 0, 0], "max": [0, 0, 0] },
-    { "componentType": 5126, "count": 1, "type": "VEC3", "min": [0, 0, 0], "max": [0, 0, 0] },
-    { "componentType": 5126, "count": 1, "type": "SCALAR" },
-    { "componentType": 5126, "count": 1, "type": "VEC2" },
-    { "componentType": 5126, "count": 1, "type": "VEC2" },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "SCALAR",
+      "min": [
+        0
+      ],
+      "max": [
+        0
+      ]
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC3",
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC3",
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC3",
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "SCALAR"
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC2"
+    },
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC2"
+    },
     {
       "bufferView": 0,
       "componentType": 5126,
       "count": 2,
       "type": "SCALAR",
-      "min": [0],
-      "max": [1]
+      "min": [
+        0
+      ],
+      "max": [
+        1
+      ]
     },
-    { "componentType": 5126, "count": 2, "type": "VEC3" },
-    { "componentType": 5126, "count": 2, "type": "SCALAR" },
-    { "componentType": 5126, "count": 2, "type": "VEC2" }
+    {
+      "componentType": 5126,
+      "count": 2,
+      "type": "VEC3"
+    },
+    {
+      "componentType": 5126,
+      "count": 2,
+      "type": "SCALAR"
+    },
+    {
+      "componentType": 5126,
+      "count": 2,
+      "type": "VEC2"
+    }
   ],
   "animations": [
     {
       "channels": [
-        { "sampler": 0, "target": { "node": 1, "path": "translation" } },
-        { "sampler": 1, "target": { "node": 2, "path": "weights" } },
+        {
+          "sampler": 0,
+          "target": {
+            "node": 1,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 1,
+          "target": {
+            "node": 2,
+            "path": "weights"
+          }
+        },
         {
           "sampler": 2,
           "target": {
@@ -108,20 +222,41 @@
         }
       ],
       "samplers": [
-        { "input": 7, "output": 8 },
-        { "input": 7, "output": 9 },
-        { "input": 7, "output": 10 }
+        {
+          "input": 7,
+          "output": 8
+        },
+        {
+          "input": 7,
+          "output": 9
+        },
+        {
+          "input": 7,
+          "output": 10
+        }
       ]
     },
     {
       "extensions": {
-        "KHR_character_reference_pose": { "poseType": "CUSTOM_neutral" }
+        "KHR_character_reference_pose": {
+          "poseType": "CUSTOM_neutral"
+        }
       },
       "channels": [
-        { "sampler": 0, "target": { "node": 1, "path": "translation" } }
+        {
+          "sampler": 0,
+          "target": {
+            "node": 1,
+            "path": "translation"
+          }
+        }
       ],
       "samplers": [
-        { "input": 0, "output": 1, "interpolation": "STEP" }
+        {
+          "input": 0,
+          "output": 1,
+          "interpolation": "STEP"
+        }
       ]
     }
   ],
@@ -131,7 +266,12 @@
         "baseColorTexture": {
           "index": 0,
           "extensions": {
-            "KHR_texture_transform": { "offset": [0, 0] }
+            "KHR_texture_transform": {
+              "offset": [
+                0,
+                0
+              ]
+            }
           }
         }
       }
@@ -139,18 +279,28 @@
   ],
   "meshes": [
     {
-      "weights": [0],
+      "weights": [
+        0
+      ],
       "primitives": [
         {
-          "attributes": { "POSITION": 2, "TEXCOORD_0": 6 },
-          "targets": [{ "POSITION": 3 }],
+          "attributes": {
+            "POSITION": 2,
+            "TEXCOORD_0": 6
+          },
+          "targets": [
+            {
+              "POSITION": 3
+            }
+          ],
           "material": 0,
           "extensions": {
             "KHR_mesh_primitive_visibility_hint": {
               "role": "CUSTOM_primitive_view",
               "label": "Custom primitive view"
             }
-          }
+          },
+          "mode": 0
         }
       ]
     }
@@ -158,7 +308,10 @@
   "nodes": [
     {
       "name": "Root",
-      "children": [1, 2],
+      "children": [
+        1,
+        2
+      ],
       "extensions": {
         "KHR_node_camera_hint": {
           "role": "CUSTOM_portrait",
@@ -170,13 +323,17 @@
     {
       "name": "Joint",
       "extensions": {
-        "KHR_node_lookat_target": { "hint": "CUSTOM_focus" }
+        "KHR_node_lookat_target": {
+          "hint": "CUSTOM_focus"
+        }
       }
     },
     {
       "name": "Mesh",
       "mesh": 0,
-      "weights": [0],
+      "weights": [
+        0
+      ],
       "extensions": {
         "KHR_node_visibility_hint": {
           "role": "CUSTOM_view",
@@ -185,7 +342,15 @@
       }
     }
   ],
-  "scenes": [{ "nodes": [0] }],
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
   "scene": 0,
-  "textures": [{}]
+  "textures": [
+    {}
+  ]
 }

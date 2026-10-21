@@ -1,10 +1,20 @@
 {
-  "asset": { "version": "2.0" },
-  "extensionsUsed": ["KHR_character", "KHR_character_expression"],
+  "asset": {
+    "version": "2.0"
+  },
+  "extensionsUsed": [
+    "KHR_character",
+    "KHR_character_expression"
+  ],
   "extensions": {
-    "KHR_character": { "rootNode": 0 },
+    "KHR_character": {},
     "KHR_character_expression": {
-      "expressions": [{ "expression": "sentinel", "animation": 0 }]
+      "expressions": [
+        {
+          "name": "sentinel",
+          "animation": 0
+        }
+      ]
     }
   },
   "accessors": [
@@ -12,18 +22,38 @@
       "componentType": 5126,
       "count": 1,
       "type": "SCALAR",
-      "min": [0],
-      "max": [0]
+      "min": [
+        0
+      ],
+      "max": [
+        0
+      ]
     },
-    { "componentType": 5126, "count": 1, "type": "VEC3" }
+    {
+      "componentType": 5126,
+      "count": 1,
+      "type": "VEC3"
+    }
   ],
   "animations": [
     {
       "channels": [
-        { "sampler": 0, "target": { "path": "translation" } }
+        {
+          "sampler": 0,
+          "target": {
+            "path": "translation"
+          }
+        }
       ],
-      "samplers": [{ "input": 0, "output": 1 }]
+      "samplers": [
+        {
+          "input": 0,
+          "output": 1
+        }
+      ]
     }
   ],
-  "nodes": [{}]
+  "nodes": [
+    {}
+  ]
 }

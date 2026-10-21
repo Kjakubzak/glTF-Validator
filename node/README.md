@@ -2,6 +2,12 @@
 
 This is an npm package for the official [glTF Validator](https://github.com/KhronosGroup/glTF-Validator/) compiled from Dart to JS.
 
+Character-family support in this branch tracks the normative specification at
+`9dc0781cebd1a24a0869aa98d2a3b902754ecd92`. The package validates asset data;
+host mapping arbitration, suppression evaluation, composition and view visibility
+are implemented by the consuming runtime. Build with `dart run grinder npm-release`
+and run `npm test --prefix node` to check the compiled package API.
+
 ## Installation
 
 ```

@@ -236,8 +236,20 @@ void _runBuild(String dir, {bool release = true, String defineOption}) {
 
   delete(File(p.join(target, '.build.manifest')));
   delete(File(p.join(target, '.packages')));
-  delete(Directory(p.join(target, 'packages')));
+  _deleteGeneratedDirectory(Directory(p.join(target, 'packages')));
   delete(Directory(p.join(target, '.dart_tool')));
+}
+
+// Dart 2 can leave merged SDK directories behind on macOS (ENOTEMPTY).
+// Use the platform deletion tool for this generated output only.
+void _deleteGeneratedDirectory(Directory directory) {
+  try {
+    delete(directory);
+  } on FileSystemException catch (error) {
+    if (!Platform.isMacOS || error.osError?.errorCode != 66) rethrow;
+    final result = Process.runSync('/bin/rm', ['-rf', directory.path]);
+    if (result.exitCode != 0 || directory.existsSync()) rethrow;
+  }
 }
 
 String get npmExecutable => Platform.isWindows ? 'npm.cmd' : 'npm';

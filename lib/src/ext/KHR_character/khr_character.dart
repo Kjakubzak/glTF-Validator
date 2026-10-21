@@ -4,20 +4,18 @@
 
 library gltf.extensions.khr_character;
 
-import 'dart:math' as math;
-
 import 'package:gltf/src/base/gltf_property.dart';
 import 'package:gltf/src/ext/extensions.dart';
-import 'package:gltf/src/gl.dart' as gl;
 
 const String KHR_CHARACTER = 'KHR_character';
 const String KHR_CHARACTER_EXPRESSION = 'KHR_character_expression';
 const String KHR_CHARACTER_EXPRESSION_JOINT = 'KHR_character_expression_joint';
 const String KHR_CHARACTER_EXPRESSION_MORPHTARGET =
     'KHR_character_expression_morphtarget';
-const String KHR_CHARACTER_EXPRESSION_TEXTURE =
-    'KHR_character_expression_texture';
-const String KHR_CHARACTER_EXPRESSION_MASK = 'KHR_character_expression_mask';
+const String KHR_CHARACTER_EXPRESSION_TEXTURE_TRANSFORM =
+    'KHR_character_expression_texture_transform';
+const String KHR_CHARACTER_EXPRESSION_SUPPRESSION =
+    'KHR_character_expression_suppression';
 const String KHR_CHARACTER_EXPRESSION_MAPPING =
     'KHR_character_expression_mapping';
 const String KHR_CHARACTER_SKELETON_MAPPING = 'KHR_character_skeleton_mapping';
@@ -28,16 +26,12 @@ const String KHR_NODE_VISIBILITY_HINT = 'KHR_node_visibility_hint';
 const String KHR_MESH_PRIMITIVE_VISIBILITY_HINT =
     'KHR_mesh_primitive_visibility_hint';
 
-const String ROOT_NODE = 'rootNode';
 const String EXPRESSIONS = 'expressions';
-const String EXPRESSION = 'expression';
 const String ANIMATION = 'animation';
 const String EXPRESSION_SET_MAPPINGS = 'expressionSetMappings';
-const String EXPRESSION_SET_INPUT_MAPPINGS = 'expressionSetInputMappings';
 const String MAPPING_SOURCE = 'source';
-const String MAPPING_TARGET = 'target';
 const String WEIGHT = 'weight';
-const String MASKS = 'masks';
+const String SUPPRESSIONS = 'suppressions';
 const String AMOUNT = 'amount';
 const String THRESHOLD = 'threshold';
 const String SKELETAL_RIG_MAPPINGS = 'skeletalRigMappings';
@@ -48,8 +42,8 @@ const String TARGET_NODE = 'targetNode';
 const String LABEL = 'label';
 const String HINT = 'hint';
 
-final RegExp _nonEmpty = RegExp('.+');
-final RegExp _maskType =
+final RegExp _nonEmpty = RegExp(r'[\s\S]+');
+final RegExp _suppressionType =
     RegExp(r'^(?:blend|block|[A-Z0-9]+_[a-z0-9]+(?:_[a-z0-9]+)*)$');
 
 const Set<String> _coreExpressionPaths = <String>{
@@ -64,21 +58,6 @@ const Set<String> _textureTransformExpressionProperties = <String>{
   SCALE,
   ROTATION
 };
-
-class _ExpressionInitialTarget {
-  final List<double> value;
-  final bool quaternion;
-
-  const _ExpressionInitialTarget(this.value, {this.quaternion = false});
-}
-
-bool _isAbsoluteUri(String value) {
-  try {
-    return Uri.parse(value).isAbsolute;
-  } on FormatException {
-    return false;
-  }
-}
 
 void _withPath(Context context, Iterable<String> path, void Function() action) {
   final previousPath = context.path.toList(growable: false);
@@ -102,161 +81,34 @@ bool _isTextureTransformPointer(KhrAnimationPointer pointer) {
       _textureTransformExpressionProperties.contains(segments.last);
 }
 
-List<double> _nodeWeights(Node node) {
-  final count = node?.mesh?.morphTargetsCount ?? 0;
-  if (count == 0) {
-    return null;
-  }
-  return (node?.weights ?? node?.mesh?.weights ?? List<double>.filled(count, 0))
-      ?.toList(growable: false);
+bool _isTextureTransformPointerPath(KhrAnimationPointer pointer) {
+  final tokens = pointer.decodedTokens;
+  return tokens != null &&
+      tokens.length >= 4 &&
+      tokens[tokens.length - 3] == EXTENSIONS &&
+      tokens[tokens.length - 2] == KHR_TEXTURE_TRANSFORM &&
+      _textureTransformExpressionProperties.contains(tokens.last);
 }
 
-_ExpressionInitialTarget _nodeExpressionInitialTarget(Node node, String path) {
-  if (node == null) {
-    return null;
-  }
-  switch (path) {
-    case TRANSLATION:
-      return _ExpressionInitialTarget(<double>[
-        node.translation?.x ?? 0,
-        node.translation?.y ?? 0,
-        node.translation?.z ?? 0
-      ]);
-    case ROTATION:
-      return _ExpressionInitialTarget(<double>[
-        node.rotation?.x ?? 0,
-        node.rotation?.y ?? 0,
-        node.rotation?.z ?? 0,
-        node.rotation?.w ?? 1
-      ], quaternion: true);
-    case SCALE:
-      return _ExpressionInitialTarget(
-          <double>[node.scale?.x ?? 1, node.scale?.y ?? 1, node.scale?.z ?? 1]);
-    case WEIGHTS:
-      final weights = _nodeWeights(node);
-      return weights == null ? null : _ExpressionInitialTarget(weights);
-  }
-  return null;
+bool _hasTextureInfoOwner(
+    Gltf gltf, KhrAnimationPointer pointer, Context context) {
+  final transform = _resolvedPointerTarget(gltf, pointer);
+  return transform is KhrTextureTransform &&
+      context.owners[transform] is TextureInfo;
 }
 
-_ExpressionInitialTarget _coreExpressionInitialTarget(
-        AnimationChannelTarget target) =>
-    _nodeExpressionInitialTarget(target?.node, target?.path);
-
-_ExpressionInitialTarget _pointerExpressionInitialTarget(
-    Gltf gltf, KhrAnimationPointer pointer) {
-  final template = pointer?.property?.template;
-  final tokens = pointer?.decodedTokens;
-  if (template == null || tokens == null) {
-    return null;
-  }
-
-  if (template == '/nodes/{}/translation' ||
-      template == '/nodes/{}/rotation' ||
-      template == '/nodes/{}/scale') {
-    final nodeIndex = tokens.length > 1 ? int.tryParse(tokens[1]) : null;
-    final node = nodeIndex == null ? null : gltf.nodes[nodeIndex];
-    if (node == null) {
-      return null;
-    }
-    final path = template.substring(template.lastIndexOf('/') + 1);
-    return _nodeExpressionInitialTarget(node, path);
-  }
-
-  if (template == '/nodes/{}/weights' || template == '/nodes/{}/weights/{}') {
-    final nodeIndex = tokens.length > 1 ? int.tryParse(tokens[1]) : null;
-    final node = nodeIndex == null ? null : gltf.nodes[nodeIndex];
-    final weights = _nodeWeights(node);
-    if (weights == null) {
-      return null;
-    }
-    if (template.endsWith('/{}')) {
-      final weightIndex = tokens.length > 3 ? int.tryParse(tokens[3]) : null;
-      if (weightIndex == null || weightIndex >= weights.length) {
-        return null;
-      }
-      return _ExpressionInitialTarget(<double>[weights[weightIndex]]);
-    }
-    return _ExpressionInitialTarget(weights);
-  }
-
-  if (_isTextureTransformPointer(pointer)) {
-    final indices = pointer.property.match(pointer.pointer);
-    if (indices == null) {
-      return null;
-    }
-    final resolvedTarget = pointer.property.resolve(gltf, indices).target;
-    if (resolvedTarget is! KhrTextureTransform) {
-      return null;
-    }
-    final transform = resolvedTarget as KhrTextureTransform;
-    switch (template.substring(template.lastIndexOf('/') + 1)) {
-      case OFFSET:
-        return _ExpressionInitialTarget(transform.offset);
-      case SCALE:
-        return _ExpressionInitialTarget(transform.scale);
-      case ROTATION:
-        return _ExpressionInitialTarget(<double>[transform.rotation]);
-    }
-  }
-  return null;
+GltfProperty _resolvedPointerTarget(Gltf gltf, KhrAnimationPointer pointer) {
+  final indices = pointer.property?.match(pointer.pointer);
+  return indices == null
+      ? null
+      : pointer.property.resolve(gltf, indices).target;
 }
 
-double _expressionAccessorAllowance(Accessor accessor) {
-  if (accessor?.normalized != true) {
-    return 0;
-  }
-  switch (accessor.componentType) {
-    case gl.BYTE:
-      return 0.5 / 127;
-    case gl.UNSIGNED_BYTE:
-      return 0.5 / 255;
-    case gl.SHORT:
-      return 0.5 / 32767;
-    case gl.UNSIGNED_SHORT:
-      return 0.5 / 65535;
-  }
-  return 0;
-}
-
-List<double> _decodedExpressionOutput(Accessor accessor) => (accessor.normalized
-        ? accessor.getElementsNormalized()
-        : accessor.getElements().map((value) => value.toDouble()))
-    .toList(growable: false);
-
-bool _expressionInitialValuesEquivalent(List<double> authored,
-    List<double> sampled, Accessor accessor, bool quaternion) {
-  if (authored.length != sampled.length) {
-    return false;
-  }
-  final allowance = _expressionAccessorAllowance(accessor);
-  if (quaternion) {
-    if (authored.length != 4) {
-      return false;
-    }
-    final authoredLength = math
-        .sqrt(authored.fold<double>(0, (sum, value) => sum + value * value));
-    final sampledLength =
-        math.sqrt(sampled.fold<double>(0, (sum, value) => sum + value * value));
-    if (authoredLength == 0 || sampledLength == 0) {
-      return false;
-    }
-    var dot = 0.0;
-    for (var i = 0; i < 4; ++i) {
-      dot += authored[i] * sampled[i] / (authoredLength * sampledLength);
-    }
-    final quaternionAllowance = 8 * allowance * allowance;
-    return 1 - dot.abs() <= 1e-6 + quaternionAllowance;
-  }
-
-  for (var i = 0; i < authored.length; ++i) {
-    final a = authored[i];
-    final b = sampled[i];
-    if ((a - b).abs() > 1e-6 + allowance + 1e-6 * math.max(a.abs(), b.abs())) {
-      return false;
-    }
-  }
-  return true;
+Node _pointerNode(Gltf gltf, KhrAnimationPointer pointer) {
+  final tokens = pointer.decodedTokens;
+  final index =
+      tokens != null && tokens.length > 1 ? int.tryParse(tokens[1]) : null;
+  return index == null ? null : gltf.nodes[index];
 }
 
 void _requireUsed(Gltf gltf, Context context, String extension) {
@@ -272,34 +124,17 @@ void _requireRootObject(Gltf gltf, Context context, String extension) {
   }
 }
 
+/// Marker for an asset containing character content; it selects no root node.
 class KhrCharacter extends GltfProperty {
-  final int rootNodeIndex;
-  Node _rootNode;
-  Node get rootNode => _rootNode;
-
-  KhrCharacter._(
-      this.rootNodeIndex, Map<String, Object> extensions, Object extras)
+  KhrCharacter._(Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrCharacter fromMap(Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[ROOT_NODE], context);
+      checkMembers(map, const <String>[], context);
     }
-    return KhrCharacter._(getIndex(map, ROOT_NODE, context),
+    return KhrCharacter._(
         getExtensions(map, KhrCharacter, context), getExtras(map, context));
-  }
-
-  @override
-  void link(Gltf gltf, Context context) {
-    _rootNode = gltf.nodes[rootNodeIndex];
-    if (rootNodeIndex != -1) {
-      if (_rootNode == null) {
-        context.addIssue(LinkError.unresolvedReference,
-            name: ROOT_NODE, args: [rootNodeIndex]);
-      } else {
-        _rootNode.markAsUsed();
-      }
-    }
   }
 }
 
@@ -370,35 +205,34 @@ class KhrCharacterExpressionMorphTarget
   }
 }
 
-class KhrCharacterExpressionTexture extends KhrCharacterExpressionChannelSet {
-  KhrCharacterExpressionTexture._(
+class KhrCharacterExpressionTextureTransform
+    extends KhrCharacterExpressionChannelSet {
+  KhrCharacterExpressionTextureTransform._(
       List<int> channels, Map<String, Object> extensions, Object extras)
       : super(channels, extensions, extras);
 
-  static KhrCharacterExpressionTexture fromMap(
+  static KhrCharacterExpressionTextureTransform fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(map, const <String>[CHANNELS], context);
     }
-    return KhrCharacterExpressionTexture._(
+    return KhrCharacterExpressionTextureTransform._(
         getIndicesList(map, CHANNELS, context, req: true),
-        getExtensions(map, KhrCharacterExpressionTexture, context),
+        getExtensions(map, KhrCharacterExpressionTextureTransform, context),
         getExtras(map, context));
   }
 }
 
-class KhrCharacterExpressionMaskEntry extends GltfProperty {
+class KhrCharacterExpressionSuppressionEntry extends GltfProperty {
   final int targetIndex;
   KhrCharacterExpressionEntry _target;
   KhrCharacterExpressionEntry get target => _target;
-  final String name;
   final String type;
   final double amount;
   final double threshold;
 
-  KhrCharacterExpressionMaskEntry._(
+  KhrCharacterExpressionSuppressionEntry._(
       this.targetIndex,
-      this.name,
       this.type,
       this.amount,
       this.threshold,
@@ -406,71 +240,75 @@ class KhrCharacterExpressionMaskEntry extends GltfProperty {
       Object extras)
       : super(extensions, extras);
 
-  static KhrCharacterExpressionMaskEntry fromMap(
+  static KhrCharacterExpressionSuppressionEntry fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(
-          map, const <String>[TARGET, NAME, TYPE, AMOUNT, THRESHOLD], context);
+          map, const <String>[TARGET, TYPE, AMOUNT, THRESHOLD], context);
     }
-    return KhrCharacterExpressionMaskEntry._(
+    if (context.validate &&
+        map.containsKey(THRESHOLD) &&
+        (map[TYPE] == null || map[TYPE] == 'blend')) {
+      context.addIssue(LinkError.khrCharacterSuppressionIgnoredThreshold,
+          name: THRESHOLD);
+    }
+    return KhrCharacterExpressionSuppressionEntry._(
         getIndex(map, TARGET, context),
-        getString(map, NAME, context, regexp: _nonEmpty),
-        getString(map, TYPE, context, def: 'blend', regexp: _maskType),
+        getString(map, TYPE, context, def: 'blend', regexp: _suppressionType),
         getFloat(map, AMOUNT, context, min: 0, max: 1, def: 1),
         getFloat(map, THRESHOLD, context, min: 0, max: 1, def: 0),
-        getExtensions(map, KhrCharacterExpressionMaskEntry, context),
+        getExtensions(map, KhrCharacterExpressionSuppressionEntry, context),
         getExtras(map, context));
   }
 }
 
-class KhrCharacterExpressionMask extends GltfProperty {
-  final SafeList<KhrCharacterExpressionMaskEntry> masks;
+class KhrCharacterExpressionSuppression extends GltfProperty {
+  final SafeList<KhrCharacterExpressionSuppressionEntry> suppressions;
 
-  KhrCharacterExpressionMask._(
-      this.masks, Map<String, Object> extensions, Object extras)
+  KhrCharacterExpressionSuppression._(
+      this.suppressions, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
-  static KhrCharacterExpressionMask fromMap(
+  static KhrCharacterExpressionSuppression fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[MASKS], context);
-      if (!map.containsKey(MASKS)) {
-        context.addIssue(SchemaError.undefinedProperty, args: [MASKS]);
+      checkMembers(map, const <String>[SUPPRESSIONS], context);
+      if (!map.containsKey(SUPPRESSIONS)) {
+        context.addIssue(SchemaError.undefinedProperty, args: [SUPPRESSIONS]);
       }
     }
-    final maps = getMapList(map, MASKS, context);
-    final masks = maps == null
-        ? SafeList<KhrCharacterExpressionMaskEntry>.empty(MASKS)
-        : SafeList<KhrCharacterExpressionMaskEntry>(maps.length, MASKS);
+    final maps = getMapList(map, SUPPRESSIONS, context);
+    final suppressions = maps == null
+        ? SafeList<KhrCharacterExpressionSuppressionEntry>.empty(SUPPRESSIONS)
+        : SafeList<KhrCharacterExpressionSuppressionEntry>(
+            maps.length, SUPPRESSIONS);
     if (maps != null) {
-      context.path.add(MASKS);
+      context.path.add(SUPPRESSIONS);
       for (var i = 0; i < maps.length; ++i) {
         context.path.add(i.toString());
-        masks[i] = KhrCharacterExpressionMaskEntry.fromMap(maps[i], context);
+        suppressions[i] =
+            KhrCharacterExpressionSuppressionEntry.fromMap(maps[i], context);
         context.path.removeLast();
       }
       context.path.removeLast();
     }
-    final result = KhrCharacterExpressionMask._(
-        masks,
-        getExtensions(map, KhrCharacterExpressionMask, context),
+    final result = KhrCharacterExpressionSuppression._(
+        suppressions,
+        getExtensions(map, KhrCharacterExpressionSuppression, context),
         getExtras(map, context));
-    context.registerObjectsOwner(result, masks);
+    context.registerObjectsOwner(result, suppressions);
     return result;
   }
 
   void linkExpressions(
       SafeList<KhrCharacterExpressionEntry> expressions, Context context) {
-    context.path.add(MASKS);
-    masks.forEachWithIndices((i, mask) {
+    context.path.add(SUPPRESSIONS);
+    suppressions.forEachWithIndices((i, suppression) {
       context.path.add(i.toString());
-      mask._target = expressions[mask.targetIndex];
-      if (mask.targetIndex != -1 && mask._target == null) {
+      suppression._target = expressions[suppression.targetIndex];
+      if (suppression.targetIndex != -1 && suppression._target == null) {
         context.addIssue(LinkError.unresolvedReference,
-            name: TARGET, args: [mask.targetIndex]);
-      } else if (mask.name != null && mask.name != mask._target?.expression) {
-        context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
-            name: NAME, args: [mask.name, mask._target?.expression]);
+            name: TARGET, args: [suppression.targetIndex]);
       }
       context.path.removeLast();
     });
@@ -479,24 +317,24 @@ class KhrCharacterExpressionMask extends GltfProperty {
 }
 
 class KhrCharacterExpressionEntry extends GltfProperty {
-  final String expression;
+  final String name;
   final int animationIndex;
   Animation _animation;
   bool _hasIncompleteTargets = false;
   Animation get animation => _animation;
 
-  KhrCharacterExpressionEntry._(this.expression, this.animationIndex,
+  KhrCharacterExpressionEntry._(this.name, this.animationIndex,
       Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrCharacterExpressionEntry fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[EXPRESSION, ANIMATION], context);
+      checkMembers(map, const <String>[NAME, ANIMATION], context);
     }
     final extensions = getExtensions(map, KhrCharacterExpressionEntry, context);
     final result = KhrCharacterExpressionEntry._(
-        getString(map, EXPRESSION, context, req: true, regexp: _nonEmpty),
+        getString(map, NAME, context, req: true, regexp: _nonEmpty),
         getIndex(map, ANIMATION, context),
         extensions,
         getExtras(map, context));
@@ -523,16 +361,26 @@ class KhrCharacterExpressionEntry extends GltfProperty {
         if (_animation != null) {
           extension.linkExpression(gltf, _animation, context, (channel) {
             final path = channel.target?.path;
-            return channel.target?.node != null &&
+            if (channel.target?.node != null &&
                 channel.target.node.matrix == null &&
-                (path == TRANSLATION || path == ROTATION || path == SCALE);
+                (path == TRANSLATION || path == ROTATION || path == SCALE)) {
+              return true;
+            }
+            final pointer = channel.target?.extensions[KHR_ANIMATION_POINTER];
+            return pointer is KhrAnimationPointer &&
+                const <String>{
+                  '/nodes/{}/translation',
+                  '/nodes/{}/rotation',
+                  '/nodes/{}/scale'
+                }.contains(pointer.property?.template) &&
+                _pointerNode(gltf, pointer)?.matrix == null;
           });
         }
       } else if (extension is KhrCharacterExpressionMorphTarget) {
         if (_animation != null) {
           extension.linkExpression(gltf, _animation, context, (channel) {
             if (channel.target?.path == WEIGHTS &&
-                channel.target?.node?.mesh?.morphTargetsCount != 0) {
+                (channel.target?.node?.mesh?.morphTargetsCount ?? 0) > 0) {
               return true;
             }
             final pointer = channel.target?.extensions[KHR_ANIMATION_POINTER];
@@ -541,19 +389,22 @@ class KhrCharacterExpressionEntry extends GltfProperty {
                     pointer.property?.template == '/nodes/{}/weights/{}');
           });
         }
-      } else if (extension is KhrCharacterExpressionTexture) {
+      } else if (extension is KhrCharacterExpressionTextureTransform) {
         _requireUsed(gltf, context, KHR_ANIMATION_POINTER);
         _requireUsed(gltf, context, KHR_TEXTURE_TRANSFORM);
         if (_animation != null) {
           extension.linkExpression(gltf, _animation, context, (channel) {
             final pointer = channel.target?.extensions[KHR_ANIMATION_POINTER];
             return pointer is KhrAnimationPointer &&
-                _isTextureTransformPointer(pointer);
+                _isTextureTransformPointerPath(pointer) &&
+                (pointer.hasUnsupportedTargetExtensions(context) ||
+                    _isTextureTransformPointer(pointer) &&
+                        _hasTextureInfoOwner(gltf, pointer, context));
           },
               invalidTarget:
                   LinkError.khrCharacterInvalidTextureExpressionPointer);
         }
-      } else if (extension is KhrCharacterExpressionMask) {
+      } else if (extension is KhrCharacterExpressionSuppression) {
         extension.linkExpressions(expressions, context);
       }
       context.path.removeLast();
@@ -580,17 +431,19 @@ class KhrCharacterExpressionEntry extends GltfProperty {
           if (isCoreTarget) {
             // Core animation linking validates the concrete node and property.
           } else if (pointer is KhrAnimationPointer) {
-            if (pointer.decodedTokens?.contains(EXTRAS) == true) {
-              context.addIssue(LinkError.khrCharacterExpressionExtrasTarget,
+            if (pointer.hasUnsupportedTargetExtensions(context)) {
+              _hasIncompleteTargets = true;
+              context.addIssue(
+                  LinkError.khrCharacterExpressionValidationIncomplete,
                   name: TARGET);
             } else if (pointer.property == null) {
               context.addIssue(
                   LinkError.khrCharacterExpressionNonConcreteTarget,
                   name: TARGET);
-            } else if (_pointerExpressionInitialTarget(gltf, pointer) == null) {
-              _hasIncompleteTargets = true;
+            } else if (pointer.property.template == '/nodes/{}/translation' &&
+                _pointerNode(gltf, pointer)?.matrix != null) {
               context.addIssue(
-                  LinkError.khrCharacterExpressionValidationIncomplete,
+                  LinkError.khrCharacterExpressionNonConcreteTarget,
                   name: TARGET);
             }
           } else if (target.extensions.isNotEmpty) {
@@ -627,12 +480,17 @@ class KhrCharacterExpressionEntry extends GltfProperty {
       for (final name in const <String>[
         KHR_CHARACTER_EXPRESSION_JOINT,
         KHR_CHARACTER_EXPRESSION_MORPHTARGET,
-        KHR_CHARACTER_EXPRESSION_TEXTURE
+        KHR_CHARACTER_EXPRESSION_TEXTURE_TRANSFORM
       ])
         if (extensions[name] is KhrCharacterExpressionChannelSet)
           name: extensions[name] as KhrCharacterExpressionChannelSet
     };
     context.path.add(EXTENSIONS);
+    if (extensions.values
+        .any((extension) => extension is Map<String, Object>)) {
+      _hasIncompleteTargets = true;
+      context.addIssue(LinkError.khrCharacterExpressionValidationIncomplete);
+    }
     classifiers.forEach((name, classifier) {
       context.path
         ..add(name)
@@ -667,6 +525,9 @@ class KhrCharacterExpression extends GltfProperty
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(map, const <String>[EXPRESSIONS], context);
+    }
+    if (context.validate && !map.containsKey(EXPRESSIONS)) {
+      context.addIssue(SchemaError.undefinedProperty, args: [EXPRESSIONS]);
     }
     final maps = getMapList(map, EXPRESSIONS, context);
     final expressions = maps == null
@@ -733,37 +594,14 @@ class KhrCharacterExpression extends GltfProperty
             return;
           }
 
-          final target = channel.target;
-          final pointer = target?.extensions[KHR_ANIMATION_POINTER];
-          final initial = target != null &&
-                  target.nodeIndex != -1 &&
-                  _coreExpressionPaths.contains(target.path)
-              ? _coreExpressionInitialTarget(target)
-              : pointer is KhrAnimationPointer
-                  ? _pointerExpressionInitialTarget(gltf, pointer)
-                  : null;
-          if (initial == null) {
-            return;
+          if (output.getElements().length < output.count * output.components &&
+              !incompleteReported) {
+            context
+                .addIssue(LinkError.khrCharacterExpressionValidationIncomplete);
+            incompleteReported = true;
           }
-
-          final values = _decodedExpressionOutput(output);
-          final start =
-              sampler.interpolation == CUBICSPLINE ? initial.value.length : 0;
-          if (values.length < start + initial.value.length) {
-            if (!incompleteReported) {
-              context.addIssue(
-                  LinkError.khrCharacterExpressionValidationIncomplete);
-              incompleteReported = true;
-            }
-            return;
-          }
-          final sample = values.sublist(start, start + initial.value.length);
-          if (!_expressionInitialValuesEquivalent(
-              initial.value, sample, output, initial.quaternion)) {
-            context.addIssue(
-                DataError.khrCharacterExpressionInitialValueMismatch,
-                args: [channelIndex]);
-          }
+          // Time-zero equivalence is an authoring recommendation, not validity.
+          // Core and pointer resource checkers still validate every target value.
         });
       });
     });
@@ -788,34 +626,9 @@ class KhrCharacterExpressionMappingSource extends GltfProperty {
     }
     return KhrCharacterExpressionMappingSource._(
         getIndex(map, MAPPING_SOURCE, context),
-        getString(map, NAME, context, regexp: _nonEmpty),
+        getString(map, NAME, context),
         getFloat(map, WEIGHT, context, req: true, min: 0, max: 1),
         getExtensions(map, KhrCharacterExpressionMappingSource, context),
-        getExtras(map, context));
-  }
-}
-
-class KhrCharacterExpressionMappingTarget extends GltfProperty {
-  final int targetIndex;
-  KhrCharacterExpressionEntry _target;
-  KhrCharacterExpressionEntry get target => _target;
-  final String name;
-  final double weight;
-
-  KhrCharacterExpressionMappingTarget._(this.targetIndex, this.name,
-      this.weight, Map<String, Object> extensions, Object extras)
-      : super(extensions, extras);
-
-  static KhrCharacterExpressionMappingTarget fromMap(
-      Map<String, Object> map, Context context) {
-    if (context.validate) {
-      checkMembers(map, const <String>[MAPPING_TARGET, NAME, WEIGHT], context);
-    }
-    return KhrCharacterExpressionMappingTarget._(
-        getIndex(map, MAPPING_TARGET, context),
-        getString(map, NAME, context, regexp: _nonEmpty),
-        getFloat(map, WEIGHT, context, req: true, min: 0, max: 1),
-        getExtensions(map, KhrCharacterExpressionMappingTarget, context),
         getExtras(map, context));
   }
 }
@@ -839,9 +652,8 @@ Map<String, Map<String, List<T>>> _parseExpressionMappingOperation<T>(
     context.addIssue(SchemaError.emptyEntity);
   }
   setMaps.forEach((setName, value) {
-    if (!_isAbsoluteUri(setName)) {
-      context.addIssue(LinkError.khrCharacterMappingSetIdentifierNotAbsolute,
-          name: setName, args: [setName]);
+    if (setName.isEmpty) {
+      context.addIssue(SchemaError.emptyEntity, name: setName);
     }
     if (value is Map<String, Object>) {
       final mappings = <String, List<T>>{};
@@ -889,33 +701,22 @@ Map<String, Map<String, List<T>>> _parseExpressionMappingOperation<T>(
   return result;
 }
 
+/// Maps external endpoint input to native expression indices (`source`).
 class KhrCharacterExpressionMapping extends GltfProperty {
   final Map<String, Map<String, List<KhrCharacterExpressionMappingSource>>>
       expressionSetMappings;
-  final Map<String, Map<String, List<KhrCharacterExpressionMappingTarget>>>
-      expressionSetInputMappings;
 
   KhrCharacterExpressionMapping._(
-      this.expressionSetMappings,
-      this.expressionSetInputMappings,
-      Map<String, Object> extensions,
-      Object extras)
+      this.expressionSetMappings, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrCharacterExpressionMapping fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(
-          map,
-          const <String>[
-            EXPRESSION_SET_MAPPINGS,
-            EXPRESSION_SET_INPUT_MAPPINGS
-          ],
-          context);
-      if (!map.containsKey(EXPRESSION_SET_MAPPINGS) &&
-          !map.containsKey(EXPRESSION_SET_INPUT_MAPPINGS)) {
-        context
-            .addIssue(LinkError.khrCharacterExpressionMappingMissingOperation);
+      checkMembers(map, const <String>[EXPRESSION_SET_MAPPINGS], context);
+      if (!map.containsKey(EXPRESSION_SET_MAPPINGS)) {
+        context.addIssue(SchemaError.undefinedProperty,
+            args: [EXPRESSION_SET_MAPPINGS]);
       }
     }
     return KhrCharacterExpressionMapping._(
@@ -924,11 +725,6 @@ class KhrCharacterExpressionMapping extends GltfProperty {
             EXPRESSION_SET_MAPPINGS,
             context,
             KhrCharacterExpressionMappingSource.fromMap),
-        _parseExpressionMappingOperation<KhrCharacterExpressionMappingTarget>(
-            map,
-            EXPRESSION_SET_INPUT_MAPPINGS,
-            context,
-            KhrCharacterExpressionMappingTarget.fromMap),
         getExtensions(map, KhrCharacterExpressionMapping, context),
         getExtras(map, context));
   }
@@ -938,51 +734,20 @@ class KhrCharacterExpressionMapping extends GltfProperty {
     _requireRootObject(gltf, context, KHR_CHARACTER);
     _requireRootObject(gltf, context, KHR_CHARACTER_EXPRESSION);
     final expressionRoot = gltf.extensions[KHR_CHARACTER_EXPRESSION];
-    if (expressionRoot is! KhrCharacterExpression) {
-      return;
-    }
+    if (expressionRoot is! KhrCharacterExpression) return;
     final expressions = (expressionRoot as KhrCharacterExpression).expressions;
     context.path.add(EXPRESSION_SET_MAPPINGS);
     expressionSetMappings.forEach((setName, mappings) {
       context.path.add(setName);
-      mappings.forEach((targetName, sources) {
-        context.path.add(targetName);
+      mappings.forEach((endpointName, sources) {
+        context.path.add(endpointName);
         for (var i = 0; i < sources.length; ++i) {
           final source = sources[i];
           source._source = expressions[source.sourceIndex];
           if (source.sourceIndex != -1 && source._source == null) {
-            context.addIssue(LinkError.unresolvedReference,
-                index: i, args: [source.sourceIndex]);
-          } else if (source.name != null &&
-              source.name != source._source?.expression) {
             context.path.add(i.toString());
-            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
-                name: NAME, args: [source.name, source._source?.expression]);
-            context.path.removeLast();
-          }
-        }
-        context.path.removeLast();
-      });
-      context.path.removeLast();
-    });
-    context.path.removeLast();
-
-    context.path.add(EXPRESSION_SET_INPUT_MAPPINGS);
-    expressionSetInputMappings.forEach((setName, mappings) {
-      context.path.add(setName);
-      mappings.forEach((endpointName, targets) {
-        context.path.add(endpointName);
-        for (var i = 0; i < targets.length; ++i) {
-          final target = targets[i];
-          target._target = expressions[target.targetIndex];
-          if (target.targetIndex != -1 && target._target == null) {
             context.addIssue(LinkError.unresolvedReference,
-                index: i, args: [target.targetIndex]);
-          } else if (target.name != null &&
-              target.name != target._target?.expression) {
-            context.path.add(i.toString());
-            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
-                name: NAME, args: [target.name, target._target?.expression]);
+                name: MAPPING_SOURCE, args: [source.sourceIndex]);
             context.path.removeLast();
           }
         }
@@ -1041,11 +806,8 @@ class KhrCharacterSkeletonMapping extends GltfProperty {
         context.addIssue(SchemaError.emptyEntity);
       }
       rigs.forEach((rig, value) {
-        if (!_isAbsoluteUri(rig)) {
-          context.addIssue(
-              LinkError.khrCharacterMappingSetIdentifierNotAbsolute,
-              name: rig,
-              args: [rig]);
+        if (rig.isEmpty) {
+          context.addIssue(SchemaError.emptyEntity, name: rig);
         }
         if (value is Map<String, Object>) {
           final joints =
@@ -1101,13 +863,6 @@ class KhrCharacterSkeletonMapping extends GltfProperty {
               name: joint, args: [association.nodeIndex]);
         } else {
           association._node.markAsUsed();
-          if (association.name != null &&
-              association.name != association._node.name) {
-            context.path.add(joint);
-            context.addIssue(LinkError.khrCharacterReferenceNameMismatch,
-                name: NAME, args: [association.name, association._node.name]);
-            context.path.removeLast();
-          }
         }
       });
       context.path.removeLast();
@@ -1129,7 +884,7 @@ class KhrCharacterReferencePose extends GltfProperty {
       checkMembers(map, const <String>[POSE_TYPE], context);
     }
     return KhrCharacterReferencePose._(
-        getString(map, POSE_TYPE, context, def: 'TPose', regexp: _nonEmpty),
+        getString(map, POSE_TYPE, context, req: true, regexp: _nonEmpty),
         getExtensions(map, KhrCharacterReferencePose, context),
         getExtras(map, context));
   }
@@ -1332,17 +1087,18 @@ const Extension khrCharacterExpressionMorphTargetExtension =
       localLink: true),
 });
 
-const Extension khrCharacterExpressionTextureExtension =
-    Extension(KHR_CHARACTER_EXPRESSION_TEXTURE, <Type, ExtensionDescriptor>{
+const Extension khrCharacterExpressionTextureTransformExtension = Extension(
+    KHR_CHARACTER_EXPRESSION_TEXTURE_TRANSFORM, <Type, ExtensionDescriptor>{
   KhrCharacterExpressionEntry: ExtensionDescriptor(
-      KhrCharacterExpressionTexture.fromMap,
+      KhrCharacterExpressionTextureTransform.fromMap,
       localLink: true),
 });
 
-const Extension khrCharacterExpressionMaskExtension =
-    Extension(KHR_CHARACTER_EXPRESSION_MASK, <Type, ExtensionDescriptor>{
-  KhrCharacterExpressionEntry:
-      ExtensionDescriptor(KhrCharacterExpressionMask.fromMap, localLink: true),
+const Extension khrCharacterExpressionSuppressionExtension =
+    Extension(KHR_CHARACTER_EXPRESSION_SUPPRESSION, <Type, ExtensionDescriptor>{
+  KhrCharacterExpressionEntry: ExtensionDescriptor(
+      KhrCharacterExpressionSuppression.fromMap,
+      localLink: true),
 });
 
 const Extension khrCharacterExpressionMappingExtension =

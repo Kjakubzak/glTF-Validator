@@ -22,9 +22,10 @@ Future<void> main() async {
       (jsonDecode(await File(path).readAsString()) as Map)
           .cast<String, Object>();
 
-  Future<GltfJsonReader> readMap(Map<String, Object> map) async {
-    final reader =
-        GltfJsonReader(Stream<List<int>>.value(utf8.encode(jsonEncode(map))));
+  Future<GltfJsonReader> readMap(Map<String, Object> map,
+      [Context context]) async {
+    final reader = GltfJsonReader(
+        Stream<List<int>>.value(utf8.encode(jsonEncode(map))), context);
     await reader.read();
     return reader;
   }
@@ -107,7 +108,7 @@ Future<void> main() async {
     expect(reader.context.errors, isEmpty);
 
     final character = result.gltf.extensions[KHR_CHARACTER] as KhrCharacter;
-    expect(character.rootNode, same(result.gltf.nodes[0]));
+    expect(character, isA<KhrCharacter>());
 
     final expressions = result.gltf.extensions[KHR_CHARACTER_EXPRESSION]
         as KhrCharacterExpression;
@@ -117,23 +118,18 @@ Future<void> main() async {
         isA<KhrCharacterExpressionJoint>());
     expect(entry.extensions[KHR_CHARACTER_EXPRESSION_MORPHTARGET],
         isA<KhrCharacterExpressionMorphTarget>());
-    expect(entry.extensions[KHR_CHARACTER_EXPRESSION_TEXTURE],
-        isA<KhrCharacterExpressionTexture>());
-    expect(entry.extensions[KHR_CHARACTER_EXPRESSION_MASK],
-        isA<KhrCharacterExpressionMask>());
-    final mask = entry.extensions[KHR_CHARACTER_EXPRESSION_MASK]
-        as KhrCharacterExpressionMask;
-    expect(mask.masks[0].target, same(entry));
-    expect(mask.masks[0].name, 'customSmile');
+    expect(entry.extensions[KHR_CHARACTER_EXPRESSION_TEXTURE_TRANSFORM],
+        isA<KhrCharacterExpressionTextureTransform>());
+    expect(entry.extensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION],
+        isA<KhrCharacterExpressionSuppression>());
+    final mask = entry.extensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
+        as KhrCharacterExpressionSuppression;
+    expect(mask.suppressions[0].target, same(entry));
     final mapping = result.gltf.extensions[KHR_CHARACTER_EXPRESSION_MAPPING]
         as KhrCharacterExpressionMapping;
     expect(mapping.expressionSetMappings[expressionSet]['Smile'][0].source,
         same(entry));
     expect(mapping.expressionSetMappings[expressionSet]['Smile'][0].name,
-        'customSmile');
-    expect(mapping.expressionSetInputMappings[expressionSet]['Smile'][0].target,
-        same(entry));
-    expect(mapping.expressionSetInputMappings[expressionSet]['Smile'][0].name,
         'customSmile');
     final skeleton = result.gltf.extensions[KHR_CHARACTER_SKELETON_MAPPING]
         as KhrCharacterSkeletonMapping;
@@ -263,11 +259,9 @@ Future<void> main() async {
         hasLength(7));
   });
 
-  test('root, animation, channel, skeleton, camera, and node indices resolve',
-      () async {
+  test('animation, skeleton, camera, and node indices resolve', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
-    (extensions[KHR_CHARACTER] as Map<String, Object>)['rootNode'] = 99;
     final expressionRoot =
         extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
     final expressions = expressionRoot['expressions'] as List<Object>;
@@ -291,10 +285,10 @@ Future<void> main() async {
         reader.context.issues
             .where((issue) => issue.type == LinkError.unresolvedReference)
             .length,
-        greaterThanOrEqualTo(5));
+        greaterThanOrEqualTo(4));
   });
 
-  test('mapping and mask expression indices must resolve', () async {
+  test('mapping and suppression expression indices must resolve', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
     final expressionRoot =
@@ -302,9 +296,9 @@ Future<void> main() async {
     final expressions = expressionRoot['expressions'] as List<Object>;
     final entry = expressions[0] as Map<String, Object>;
     final entryExtensions = entry['extensions'] as Map<String, Object>;
-    final mask =
-        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
-    final masks = mask['masks'] as List<Object>;
+    final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
+        as Map<String, Object>;
+    final masks = mask['suppressions'] as List<Object>;
     (masks[0] as Map<String, Object>)['target'] = 99;
 
     final mapping =
@@ -314,87 +308,48 @@ Future<void> main() async {
     final sources = example['Smile'] as List<Object>;
     (sources[0] as Map<String, Object>)['source'] = 99;
 
-    final inputSets =
-        mapping['expressionSetInputMappings'] as Map<String, Object>;
-    final inputExample = inputSets[expressionSet] as Map<String, Object>;
-    final targets = inputExample['Smile'] as List<Object>;
-    (targets[0] as Map<String, Object>)['target'] = 99;
-
     final reader = await readMap(map);
     expect(
         reader.context.issues
             .where((issue) => issue.type == LinkError.unresolvedReference),
-        hasLength(3));
+        hasLength(2));
   });
 
-  test('optional reference names must exactly match resolved objects',
+  test('mapping and skeleton names are independent of referenced names',
       () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
-    final expressionRoot =
-        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
-    final expressions = expressionRoot['expressions'] as List<Object>;
-    final entry = expressions[0] as Map<String, Object>;
-    final entryExtensions = entry['extensions'] as Map<String, Object>;
-    final mask =
-        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
-    ((mask['masks'] as List<Object>)[0] as Map<String, Object>)['name'] =
-        'wrongMaskName';
-
     final mapping =
         extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
     final sets = mapping['expressionSetMappings'] as Map<String, Object>;
-    final example = sets[expressionSet] as Map<String, Object>;
-    ((example['Smile'] as List<Object>)[0] as Map<String, Object>)['name'] =
-        'wrongMappingName';
-
-    final inputSets =
-        mapping['expressionSetInputMappings'] as Map<String, Object>;
-    final inputExample = inputSets[expressionSet] as Map<String, Object>;
-    ((inputExample['Smile'] as List<Object>)[0]
-        as Map<String, Object>)['name'] = 'wrongInputMappingName';
-
+    final endpoints = sets[expressionSet] as Map<String, Object>;
+    ((endpoints['Smile'] as List<Object>)[0] as Map<String, Object>)['name'] =
+        '';
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
     final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
-    final joints = rigs[skeletonSet] as Map<String, Object>;
-    (joints['joint'] as Map<String, Object>)['name'] = 'wrongNodeName';
-
+    ((rigs[skeletonSet] as Map<String, Object>)['joint']
+        as Map<String, Object>)['name'] = 'A different association name';
+    (map['nodes'] as List<Object>)[1] = <String, Object>{};
     final reader = await readMap(map);
-    expect(
-        reader.context.issues.where((issue) =>
-            issue.type == LinkError.khrCharacterReferenceNameMismatch),
-        hasLength(4));
+    expect(reader.context.errors, isEmpty);
+    expect(reader.context.warnings, isEmpty);
   });
 
-  test('reference names remain optional', () async {
+  test('mapping and skeleton names remain optional', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
-    final expressionRoot =
-        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
-    final expressions = expressionRoot['expressions'] as List<Object>;
-    final entry = expressions[0] as Map<String, Object>;
-    final entryExtensions = entry['extensions'] as Map<String, Object>;
-    final mask =
-        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
-    ((mask['masks'] as List<Object>)[0] as Map<String, Object>).remove('name');
     final mapping =
         extensions[KHR_CHARACTER_EXPRESSION_MAPPING] as Map<String, Object>;
-    final sets = mapping['expressionSetMappings'] as Map<String, Object>;
-    final example = sets[expressionSet] as Map<String, Object>;
-    ((example['Smile'] as List<Object>)[0] as Map<String, Object>)
-        .remove('name');
-    final inputSets =
-        mapping['expressionSetInputMappings'] as Map<String, Object>;
-    final inputExample = inputSets[expressionSet] as Map<String, Object>;
-    ((inputExample['Smile'] as List<Object>)[0] as Map<String, Object>)
+    final endpoints = (mapping['expressionSetMappings']
+        as Map<String, Object>)[expressionSet] as Map<String, Object>;
+    ((endpoints['Smile'] as List<Object>)[0] as Map<String, Object>)
         .remove('name');
     final skeleton =
         extensions[KHR_CHARACTER_SKELETON_MAPPING] as Map<String, Object>;
-    final rigs = skeleton['skeletalRigMappings'] as Map<String, Object>;
-    final joints = rigs[skeletonSet] as Map<String, Object>;
+    final joints = (skeleton['skeletalRigMappings']
+        as Map<String, Object>)[skeletonSet] as Map<String, Object>;
     (joints['joint'] as Map<String, Object>).remove('name');
-
     final reader = await readMap(map);
     expect(reader.context.errors, isEmpty);
   });
@@ -402,7 +357,8 @@ Future<void> main() async {
   test('required members and nonempty arrays are enforced', () async {
     final missingRoot = await loadMap();
     final rootExtensions = missingRoot['extensions'] as Map<String, Object>;
-    (rootExtensions[KHR_CHARACTER] as Map<String, Object>).remove('rootNode');
+    (rootExtensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>)
+        .remove('expressions');
 
     final emptyExpressions = await loadMap();
     final expressionExtensions =
@@ -452,7 +408,7 @@ Future<void> main() async {
             as Map<String, Object>;
     final invalidEntry = (invalidExpressionRoot['expressions']
         as List<Object>)[0] as Map<String, Object>;
-    invalidEntry['expression'] = '';
+    invalidEntry['name'] = '';
     final invalidReader = await readMap(invalid);
     expect(invalidReader.context.issues.map((issue) => issue.type),
         contains(SchemaError.patternMismatch));
@@ -462,7 +418,7 @@ Future<void> main() async {
             as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
         as Map<String, Object>;
     (duplicateExpressionRoot['expressions'] as List<Object>)
-        .add(<String, Object>{'expression': 'customSmile', 'animation': 0});
+        .add(<String, Object>{'name': 'customSmile', 'animation': 0});
     final duplicateReader = await readMap(duplicate);
     expect(duplicateReader.context.errors, isEmpty);
   });
@@ -493,7 +449,7 @@ Future<void> main() async {
         contains(LinkError.khrCharacterExpressionNonConcreteTarget));
   });
 
-  test('expression pointer targets cannot resolve into extras', () async {
+  test('bare extras pointers lack concrete mutable semantics', () async {
     final map = await loadMap();
     final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
     node['extras'] = <String, Object>{'expressionValue': 0};
@@ -512,11 +468,10 @@ Future<void> main() async {
 
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
-        contains(LinkError.khrCharacterExpressionExtrasTarget));
+        contains(LinkError.khrCharacterExpressionNonConcreteTarget));
   });
 
-  test('unsupported expression target semantics are reported as incomplete',
-      () async {
+  test('known material pointer semantics are completely validated', () async {
     final map = await loadMap();
     final expressionRoot =
         (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
@@ -524,7 +479,7 @@ Future<void> main() async {
     final entry = (expressionRoot['expressions'] as List<Object>)[0]
         as Map<String, Object>;
     (entry['extensions'] as Map<String, Object>)
-        .remove(KHR_CHARACTER_EXPRESSION_TEXTURE);
+        .remove(KHR_CHARACTER_EXPRESSION_TEXTURE_TRANSFORM);
     final animation =
         (map['animations'] as List<Object>)[0] as Map<String, Object>;
     final channel =
@@ -542,7 +497,7 @@ Future<void> main() async {
 
     final reader = await readMap(map);
     expect(reader.context.issues.map((issue) => issue.type),
-        contains(LinkError.khrCharacterExpressionValidationIncomplete));
+        isNot(contains(LinkError.khrCharacterExpressionValidationIncomplete)));
     expect(reader.context.errors, isEmpty);
   });
 
@@ -576,25 +531,23 @@ Future<void> main() async {
     expect(reader.context.errors, isEmpty);
   });
 
-  test('complete expression resources satisfy initial-state validation',
-      () async {
+  test('complete expression resources can be fully validated', () async {
     final reader = await readMapWithResources(await loadMap());
     final issues = reader.context.issues.map((issue) => issue.type);
-    expect(issues,
-        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
     expect(issues,
         isNot(contains(LinkError.khrCharacterExpressionValidationIncomplete)));
     expect(reader.context.errors, isEmpty);
   });
 
-  test('expression samples must begin at the authored initial state', () async {
+  test('different time-zero samples do not invalidate expressions', () async {
     final map = await loadMap();
     final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
     node['translation'] = <Object>[1, 0, 0];
 
     final reader = await readMapWithResources(map);
+    expect(reader.context.errors, isEmpty);
     expect(reader.context.issues.map((issue) => issue.type),
-        contains(DataError.khrCharacterExpressionInitialValueMismatch));
+        isNot(contains(LinkError.khrCharacterExpressionValidationIncomplete)));
   });
 
   test('opposite-sign quaternions are equivalent initial values', () async {
@@ -610,13 +563,10 @@ Future<void> main() async {
         as Map<String, Object>)['output'] = output;
 
     final reader = await readMapWithResources(map);
-    expect(reader.context.issues.map((issue) => issue.type),
-        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
     expect(reader.context.errors, isEmpty);
   });
 
-  test('cubic expression initial checks use value records, not tangents',
-      () async {
+  test('cubic expression tangents remain valid', () async {
     final map = await loadMap();
     final animation =
         (map['animations'] as List<Object>)[0] as Map<String, Object>;
@@ -649,12 +599,10 @@ Future<void> main() async {
       ..['interpolation'] = 'CUBICSPLINE';
 
     final reader = await readMapWithResources(map);
-    expect(reader.context.issues.map((issue) => issue.type),
-        isNot(contains(DataError.khrCharacterExpressionInitialValueMismatch)));
     expect(reader.context.errors, isEmpty);
   });
 
-  test('normalized integer initial values use the specified allowance',
+  test('normalized morph values need not equal authored neutral values',
       () async {
     for (final encodedValue in <int>[128, 129]) {
       final map = await loadMap();
@@ -668,9 +616,7 @@ Future<void> main() async {
           as Map<String, Object>)['output'] = output;
 
       final reader = await readMapWithResources(map);
-      final hasMismatch = reader.context.issues.any((issue) =>
-          issue.type == DataError.khrCharacterExpressionInitialValueMismatch);
-      expect(hasMismatch, encodedValue == 129, reason: '$encodedValue');
+      expect(reader.context.errors, isEmpty, reason: '$encodedValue');
     }
   });
 
@@ -684,7 +630,7 @@ Future<void> main() async {
         contains(LinkError.khrCharacterExpressionValidationIncomplete));
   });
 
-  test('mask ranges and open vocabularies are validated', () async {
+  test('suppression ranges and open vocabularies are validated', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
     final expressionRoot =
@@ -692,9 +638,9 @@ Future<void> main() async {
     final expressions = expressionRoot['expressions'] as List<Object>;
     final entry = expressions[0] as Map<String, Object>;
     final entryExtensions = entry['extensions'] as Map<String, Object>;
-    final mask =
-        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
-    final masks = mask['masks'] as List<Object>;
+    final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
+        as Map<String, Object>;
+    final masks = mask['suppressions'] as List<Object>;
     (masks[0] as Map<String, Object>)
       ..['type'] = ''
       ..['amount'] = 1.1
@@ -703,7 +649,7 @@ Future<void> main() async {
     expect(reader.context.errors.length, greaterThanOrEqualTo(3));
   });
 
-  test('mask types and optional names follow the proposal grammar', () async {
+  test('suppression custom types follow vendor extension grammar', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
     final expressionRoot =
@@ -711,21 +657,19 @@ Future<void> main() async {
     final expressions = expressionRoot['expressions'] as List<Object>;
     final entry = expressions[0] as Map<String, Object>;
     final entryExtensions = entry['extensions'] as Map<String, Object>;
-    final mask =
-        entryExtensions[KHR_CHARACTER_EXPRESSION_MASK] as Map<String, Object>;
-    final masks = mask['masks'] as List<Object>;
-    (masks[0] as Map<String, Object>)
-      ..['type'] = 'ACME_InvalidSuffix'
-      ..['name'] = '';
+    final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
+        as Map<String, Object>;
+    final masks = mask['suppressions'] as List<Object>;
+    (masks[0] as Map<String, Object>)..['type'] = 'ACME_InvalidSuffix';
 
     final reader = await readMap(map);
     expect(
         reader.context.issues
             .where((issue) => issue.type == SchemaError.patternMismatch),
-        hasLength(2));
+        hasLength(1));
   });
 
-  test('mask arrays are required and custom companions must be declared',
+  test('suppression arrays are required and custom companions must be declared',
       () async {
     final missing = await loadMap();
     final missingExpressionRoot =
@@ -735,9 +679,9 @@ Future<void> main() async {
         as List<Object>)[0] as Map<String, Object>;
     final missingEntryExtensions =
         missingEntry['extensions'] as Map<String, Object>;
-    (missingEntryExtensions[KHR_CHARACTER_EXPRESSION_MASK]
+    (missingEntryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
             as Map<String, Object>)
-        .remove('masks');
+        .remove('suppressions');
     final missingReader = await readMap(missing);
     expect(missingReader.context.issues.map((issue) => issue.type),
         contains(SchemaError.undefinedProperty));
@@ -751,12 +695,12 @@ Future<void> main() async {
     final companionEntryExtensions =
         companionEntry['extensions'] as Map<String, Object>;
     final companionMask =
-        companionEntryExtensions[KHR_CHARACTER_EXPRESSION_MASK]
+        companionEntryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
             as Map<String, Object>;
-    ((companionMask['masks'] as List<Object>)[0] as Map<String, Object>)
-      ..['type'] = 'ACME_expression_mask_curve'
+    ((companionMask['suppressions'] as List<Object>)[0] as Map<String, Object>)
+      ..['type'] = 'ACME_expression_suppression_curve'
       ..['extensions'] = <String, Object>{
-        'ACME_expression_mask_curve': <String, Object>{}
+        'ACME_expression_suppression_curve': <String, Object>{}
       };
     final companionReader = await readMap(companion);
     expect(companionReader.context.issues.map((issue) => issue.type),
@@ -773,36 +717,31 @@ Future<void> main() async {
         contains(SchemaError.emptyEntity));
   });
 
-  test('mapping accepts either independent direction and rejects neither',
-      () async {
-    final forwardOnly = await loadMap();
-    ((forwardOnly['extensions']
-                as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-            as Map<String, Object>)
-        .remove('expressionSetInputMappings');
-    final forwardReader = await readMap(forwardOnly);
-    expect(forwardReader.context.errors, isEmpty);
-
-    final inputOnly = await loadMap();
-    ((inputOnly['extensions']
-                as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-            as Map<String, Object>)
-        .remove('expressionSetMappings');
-    final inputReader = await readMap(inputOnly);
-    expect(inputReader.context.errors, isEmpty);
-
-    final neither = await loadMap();
-    ((neither['extensions']
+  test('mapping requires the sole external-input operation', () async {
+    final map = await loadMap();
+    final valid = await readMap(map);
+    expect(valid.context.errors, isEmpty);
+    final mapping = (map['extensions']
             as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
-        as Map<String, Object>)
-      ..remove('expressionSetMappings')
-      ..remove('expressionSetInputMappings');
-    final neitherReader = await readMap(neither);
-    expect(neitherReader.context.issues.map((issue) => issue.type),
-        contains(LinkError.khrCharacterExpressionMappingMissingOperation));
+        as Map<String, Object>;
+    mapping.remove('expressionSetMappings');
+    mapping['expressionSetInputMappings'] = <String, Object>{
+      expressionSet: <String, Object>{
+        'Smile': <Object>[
+          <String, Object>{'target': 0, 'weight': 1}
+        ]
+      }
+    };
+    final inputOnly = await readMap(map);
+    expect(inputOnly.context.issues.map((issue) => issue.type),
+        contains(SchemaError.undefinedProperty));
+    mapping.clear();
+    final absent = await readMap(map);
+    expect(absent.context.issues.map((issue) => issue.type),
+        contains(SchemaError.undefinedProperty));
   });
 
-  test('mapping validates set URIs, nonempty data, and weights', () async {
+  test('mapping validates nonempty data and weights', () async {
     final map = await loadMap();
     final mapping = (map['extensions']
             as Map<String, Object>)[KHR_CHARACTER_EXPRESSION_MAPPING]
@@ -814,12 +753,9 @@ Future<void> main() async {
         ]
       }
     };
-    mapping['expressionSetInputMappings'] = <String, Object>{};
 
     final reader = await readMap(map);
     final issues = reader.context.issues.map((issue) => issue.type);
-    expect(issues,
-        contains(LinkError.khrCharacterMappingSetIdentifierNotAbsolute));
     expect(issues, contains(SchemaError.emptyEntity));
     expect(issues, contains(SchemaError.valueNotInRange));
   });
@@ -851,8 +787,7 @@ Future<void> main() async {
         contains(SchemaError.typeMismatch));
   });
 
-  test('skeleton mappings require absolute set URIs and nonempty roles',
-      () async {
+  test('skeleton mappings require nonempty roles', () async {
     final map = await loadMap();
     final extensions = map['extensions'] as Map<String, Object>;
     final skeleton =
@@ -865,8 +800,6 @@ Future<void> main() async {
 
     final reader = await readMap(map);
     final issues = reader.context.issues.map((issue) => issue.type);
-    expect(issues,
-        contains(LinkError.khrCharacterMappingSetIdentifierNotAbsolute));
     expect(issues, contains(SchemaError.emptyEntity));
   });
 

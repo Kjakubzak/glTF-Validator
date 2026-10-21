@@ -40,9 +40,9 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
   - KHR_character_expression
   - KHR_character_expression_joint
   - KHR_character_expression_mapping
-  - KHR_character_expression_mask
+  - KHR_character_expression_suppression
   - KHR_character_expression_morphtarget
-  - KHR_character_expression_texture
+  - KHR_character_expression_texture_transform
   - KHR_character_reference_pose
   - KHR_character_skeleton_mapping
   - KHR_lights_punctual
@@ -63,10 +63,23 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
   - KHR_mesh_quantization
   - KHR_node_camera_hint
   - KHR_node_lookat_target
+  - KHR_node_visibility
   - KHR_node_visibility_hint
   - KHR_texture_transform
   - KHR_xmp_json_ld
 - [Full list of detectable issues](ISSUES.md).
+
+The character-family implementation tracks `avatar_ext_normative` commit
+`9dc0781cebd1a24a0869aa98d2a3b902754ecd92`. It validates asset shape,
+references, concrete targets, classifier uniqueness and decoded animation data.
+It reports affected expression checks as incomplete when declared target or
+derived extensions, or referenced resources, cannot be interpreted. It does
+not evaluate drivers, mapping arbitration, suppression, host composition,
+camera selection or view-specific visibility. Nested visibility hints and
+shared targets across expression entries are valid. Mapping uses the sole
+`expressionSetMappings` operation: external endpoints drive native entries
+indexed by the unchanged `source` wire member.
+
 
 ## Usage
 
