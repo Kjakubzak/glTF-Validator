@@ -534,10 +534,20 @@ class KhrCharacterExpression extends GltfProperty
         ? SafeList<KhrCharacterExpressionEntry>.empty(EXPRESSIONS)
         : SafeList<KhrCharacterExpressionEntry>(maps.length, EXPRESSIONS);
     if (maps != null) {
+      final firstNames = <String, int>{};
       context.path.add(EXPRESSIONS);
       for (var i = 0; i < maps.length; ++i) {
         context.path.add(i.toString());
         expressions[i] = KhrCharacterExpressionEntry.fromMap(maps[i], context);
+        final name = expressions[i]?.name;
+        if (context.validate && name != null && name.isNotEmpty) {
+          if (firstNames.containsKey(name)) {
+            context.addIssue(LinkError.khrCharacterExpressionDuplicateName,
+                name: NAME, args: [name, firstNames[name]]);
+          } else {
+            firstNames[name] = i;
+          }
+        }
         context.path.removeLast();
       }
       context.path.removeLast();

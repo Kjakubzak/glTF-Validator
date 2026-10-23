@@ -737,6 +737,11 @@ class LinkError extends IssueType {
       (args) => 'Animation channel target is incompatible with this '
           'character expression type.');
 
+  static final LinkError khrCharacterExpressionDuplicateName = LinkError._(
+      'KHR_CHARACTER_EXPRESSION_DUPLICATE_NAME',
+      (args) => 'Expression name ${_q(args[0])} duplicates the name at '
+          'expressions/${args[1]}/name. Native expression names must be unique.');
+
   static final LinkError khrCharacterExpressionClassifierOverlap = LinkError._(
       'KHR_CHARACTER_EXPRESSION_CLASSIFIER_OVERLAP',
       (args) => 'Expression animation channel ${args[0]} is already '

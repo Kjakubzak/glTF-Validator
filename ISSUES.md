@@ -115,6 +115,7 @@
 |KHR_ANIMATION_POINTER_INVALID_INTERPOLATION|Animation pointer target requires STEP interpolation. Found '`%1`'.|Error|
 |KHR_ANIMATION_POINTER_UNRESOLVED|Animation pointer does not resolve to a mutable property: '`%1`'.|Error|
 |KHR_CHARACTER_EXPRESSION_CLASSIFIER_OVERLAP|Expression animation channel `%1` is already classified by '`%2`'.|Error|
+|KHR_CHARACTER_EXPRESSION_DUPLICATE_NAME|Expression name '`%1`' duplicates the name at expressions/`%2`/name. Native expression names must be unique.|Error|
 |KHR_CHARACTER_EXPRESSION_NON_CONCRETE_TARGET|Expression animation channel does not resolve to a concrete mutable Asset Object Model property.|Error|
 |KHR_CHARACTER_EXPRESSION_SAMPLER_TOO_FEW_KEYS|Expression animation sampler input must contain at least two keys. Found `%1`.|Error|
 |KHR_CHARACTER_EXPRESSION_VALIDATION_INCOMPLETE|Expression response validation is incomplete because a target or referenced resource could not be interpreted.|Information|

@@ -56,13 +56,44 @@ test('exact non-URI identifiers and independently named associations are accepte
   assert.equal(report.issues.numWarnings, 0);
 });
 
-test('duplicate labels, shared animations, shared targets and nondefault neutral values are valid', async () => {
+test('distinct names, shared animations, shared targets and nondefault neutral values are valid', async () => {
   const a = asset();
   a.nodes[1].translation = [1, 0, 0];
-  a.extensions.KHR_character_expression.expressions.push(structuredClone(entry(a)));
+  a.extensions.KHR_character_expression.expressions.push({...structuredClone(entry(a)), name: 'sharedTarget'});
   const report = await check(a);
   assert.equal(report.issues.numErrors, 0);
   assert(!report.issues.messages.some(m => m.code === 'KHR_CHARACTER_EXPRESSION_VALIDATION_INCOMPLETE'));
+});
+
+test('both compiled APIs report duplicate native names at the later property', async () => {
+  for (const bytes of [false, true]) for (const sameAnimation of [false, true]) {
+    const a = asset();
+    const duplicate = structuredClone(entry(a));
+    if (!sameAnimation) {
+      a.animations.push(structuredClone(a.animations[0]));
+      duplicate.animation = a.animations.length - 1;
+    }
+    const expressions = a.extensions.KHR_character_expression.expressions;
+    const later = expressions.length;
+    expressions.push(duplicate);
+    const report = await check(a, bytes);
+    const issues = report.issues.messages.filter(m => m.code === 'KHR_CHARACTER_EXPRESSION_DUPLICATE_NAME');
+    assert.equal(issues.length, 1);
+    assert.equal(issues[0].pointer, `/extensions/KHR_character_expression/expressions/${later}/name`);
+    assert.match(issues[0].message, /expressions\/0\/name/);
+  }
+});
+
+test('compiled APIs compare native names exactly without normalization', async () => {
+  for (const bytes of [false, true]) {
+    const a = asset();
+    a.extensions.KHR_character_expression.expressions = ['smile', 'Smile', ' smile', 'smile ', 'é', 'e\u0301', '__proto__', 'toString']
+      .map(name => ({name, animation: 0}));
+    const report = await check(a, bytes);
+    assert.equal(report.issues.numErrors, 0);
+    a.extensions.KHR_character_expression.expressions.push({name: JSON.parse('"\\u0073mile"'), animation: 0});
+    assert((await check(a, bytes)).issues.messages.some(m => m.code === 'KHR_CHARACTER_EXPRESSION_DUPLICATE_NAME'));
+  }
 });
 
 test('pose type and mapping bounds remain asset validity gates', async () => {
