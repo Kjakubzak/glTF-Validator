@@ -113,6 +113,78 @@ Future<void> main() async {
                           const AnimationPointerResolution(exists: true))))
         ]);
 
+  test('native name duplicates report the later property and first index',
+      () async {
+    for (final sameAnimation in <bool>[false, true]) {
+      final map = await asset();
+      final exts = map['extensions'] as Map<String, Object>;
+      final root = exts[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
+      final first = entry(map);
+      final duplicate =
+          (jsonDecode(jsonEncode(first)) as Map).cast<String, Object>();
+      if (!sameAnimation) {
+        final animations = map['animations'] as List<Object>;
+        animations.add(jsonDecode(jsonEncode(animation(map))));
+        duplicate['animation'] = animations.length - 1;
+      }
+      final expressions = root['expressions'] as List<Object>;
+      expressions.add(<String, Object>{'name': 'otherNative', 'animation': 0});
+      final later = expressions.length;
+      expressions.add(duplicate);
+      final reader = await validate(map);
+      final issues = reader.context.issues
+          .where((issue) =>
+              issue.type == LinkError.khrCharacterExpressionDuplicateName)
+          .toList();
+      expect(issues, hasLength(1));
+      expect(issues.single.pointer,
+          '/extensions/KHR_character_expression/expressions/$later/name');
+      expect(issues.single.toString(), contains('expressions/0/name'));
+    }
+  });
+
+  test('native names compare exactly and permit independent shared animations',
+      () async {
+    final map = await asset();
+    final root =
+        (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    root['expressions'] = <Object>[
+      for (final name in <String>[
+        'smile',
+        'Smile',
+        ' smile',
+        'smile ',
+        'é',
+        'e\u0301',
+        '__proto__',
+        'toString'
+      ])
+        <String, Object>{'name': name, 'animation': 0}
+    ];
+    (map['extensions'] as Map<String, Object>)
+        .remove(KHR_CHARACTER_EXPRESSION_MAPPING);
+    final reader = await validate(map, resources: true);
+    expect(reader.context.errors, isEmpty);
+  });
+
+  test('native duplicates remain invalid on unsupported expression entries',
+      () async {
+    final map = await asset();
+    final root =
+        (map['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
+            as Map<String, Object>;
+    final duplicate =
+        (jsonDecode(jsonEncode(entry(map))) as Map).cast<String, Object>();
+    duplicate['extensions'] = <String, Object>{
+      'ACME_future_expression': <String, Object>{}
+    };
+    (root['expressions'] as List<Object>).add(duplicate);
+    final reader = await validate(map);
+    expect(reader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionDuplicateName));
+  });
+
   test('marker has no root or metadata dependency', () async {
     final map = <String, Object>{
       'asset': <String, Object>{'version': '2.0'},
@@ -273,6 +345,7 @@ Future<void> main() async {
               as Map<String, Object>;
       final duplicate =
           (jsonDecode(jsonEncode(entry(map))) as Map).cast<String, Object>();
+      duplicate['name'] = 'sharedTarget';
       duplicate['animation'] = animations.length - 1;
       (root['expressions'] as List<Object>).add(duplicate);
       final reader = await validate(map, resources: true);

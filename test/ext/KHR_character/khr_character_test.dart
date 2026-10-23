@@ -401,7 +401,7 @@ Future<void> main() async {
         contains(SchemaError.arrayDuplicateElements));
   });
 
-  test('expression labels are nonempty but need not be unique', () async {
+  test('native expression names are nonempty and unique', () async {
     final invalid = await loadMap();
     final invalidExpressionRoot =
         (invalid['extensions'] as Map<String, Object>)[KHR_CHARACTER_EXPRESSION]
@@ -420,7 +420,8 @@ Future<void> main() async {
     (duplicateExpressionRoot['expressions'] as List<Object>)
         .add(<String, Object>{'name': 'customSmile', 'animation': 0});
     final duplicateReader = await readMap(duplicate);
-    expect(duplicateReader.context.errors, isEmpty);
+    expect(duplicateReader.context.issues.map((issue) => issue.type),
+        contains(LinkError.khrCharacterExpressionDuplicateName));
   });
 
   test('every referenced expression sampler has at least two keys', () async {
