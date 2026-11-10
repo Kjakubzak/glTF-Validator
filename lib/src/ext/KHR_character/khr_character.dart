@@ -37,6 +37,7 @@ const String THRESHOLD = 'threshold';
 const String SKELETAL_RIG_MAPPINGS = 'skeletalRigMappings';
 const String POSE_TYPE = 'poseType';
 const String ROLE = 'role';
+const String ROLES = 'roles';
 const String CAMERA = 'camera';
 const String TARGET_NODE = 'targetNode';
 const String LABEL = 'label';
@@ -122,6 +123,29 @@ void _requireRootObject(Gltf gltf, Context context, String extension) {
   if (!gltf.extensions.containsKey(extension)) {
     context.addIssue(SchemaError.unsatisfiedDependency, args: [extension]);
   }
+}
+
+/// Reads the required `roles` array of a visibility hint: one or more distinct
+/// nonempty strings. A legacy single `role` string is not part of the schema.
+List<String> _getVisibilityRoles(Map<String, Object> map, Context context) {
+  final roles = getStringList(map, ROLES, context);
+  if (roles == null) {
+    if (!map.containsKey(ROLES)) {
+      context.addIssue(SchemaError.undefinedProperty, args: [ROLES]);
+    }
+    return null;
+  }
+  if (context.validate) {
+    context.path.add(ROLES);
+    for (var i = 0; i < roles.length; ++i) {
+      if (roles[i].isEmpty) {
+        context.addIssue(SchemaError.patternMismatch,
+            index: i, args: [roles[i], _nonEmpty.pattern]);
+      }
+    }
+    context.path.removeLast();
+  }
+  return roles;
 }
 
 /// Marker for an asset containing character content; it selects no root node.
@@ -227,12 +251,14 @@ class KhrCharacterExpressionSuppressionEntry extends GltfProperty {
   final int targetIndex;
   KhrCharacterExpressionEntry _target;
   KhrCharacterExpressionEntry get target => _target;
+  final String name;
   final String type;
   final double amount;
   final double threshold;
 
   KhrCharacterExpressionSuppressionEntry._(
       this.targetIndex,
+      this.name,
       this.type,
       this.amount,
       this.threshold,
@@ -244,7 +270,7 @@ class KhrCharacterExpressionSuppressionEntry extends GltfProperty {
       Map<String, Object> map, Context context) {
     if (context.validate) {
       checkMembers(
-          map, const <String>[TARGET, TYPE, AMOUNT, THRESHOLD], context);
+          map, const <String>[TARGET, NAME, TYPE, AMOUNT, THRESHOLD], context);
     }
     if (context.validate &&
         map.containsKey(THRESHOLD) &&
@@ -254,6 +280,7 @@ class KhrCharacterExpressionSuppressionEntry extends GltfProperty {
     }
     return KhrCharacterExpressionSuppressionEntry._(
         getIndex(map, TARGET, context),
+        getString(map, NAME, context),
         getString(map, TYPE, context, def: 'blend', regexp: _suppressionType),
         getFloat(map, AMOUNT, context, min: 0, max: 1, def: 1),
         getFloat(map, THRESHOLD, context, min: 0, max: 1, def: 0),
@@ -1023,20 +1050,20 @@ class KhrNodeLookAtTarget extends GltfProperty {
 }
 
 class KhrNodeVisibilityHint extends GltfProperty {
-  final String role;
+  final List<String> roles;
   final String label;
 
   KhrNodeVisibilityHint._(
-      this.role, this.label, Map<String, Object> extensions, Object extras)
+      this.roles, this.label, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrNodeVisibilityHint fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[ROLE, LABEL], context);
+      checkMembers(map, const <String>[ROLES, LABEL], context);
     }
     return KhrNodeVisibilityHint._(
-        getString(map, ROLE, context, req: true, regexp: _nonEmpty),
+        _getVisibilityRoles(map, context),
         getString(map, LABEL, context, regexp: _nonEmpty),
         getExtensions(map, KhrNodeVisibilityHint, context),
         getExtras(map, context));
@@ -1044,20 +1071,20 @@ class KhrNodeVisibilityHint extends GltfProperty {
 }
 
 class KhrMeshPrimitiveVisibilityHint extends GltfProperty {
-  final String role;
+  final List<String> roles;
   final String label;
 
   KhrMeshPrimitiveVisibilityHint._(
-      this.role, this.label, Map<String, Object> extensions, Object extras)
+      this.roles, this.label, Map<String, Object> extensions, Object extras)
       : super(extensions, extras);
 
   static KhrMeshPrimitiveVisibilityHint fromMap(
       Map<String, Object> map, Context context) {
     if (context.validate) {
-      checkMembers(map, const <String>[ROLE, LABEL], context);
+      checkMembers(map, const <String>[ROLES, LABEL], context);
     }
     return KhrMeshPrimitiveVisibilityHint._(
-        getString(map, ROLE, context, req: true, regexp: _nonEmpty),
+        _getVisibilityRoles(map, context),
         getString(map, LABEL, context, regexp: _nonEmpty),
         getExtensions(map, KhrMeshPrimitiveVisibilityHint, context),
         getExtras(map, context));
@@ -1128,12 +1155,17 @@ const Extension khrNodeLookAtTargetExtension =
   Node: ExtensionDescriptor(KhrNodeLookAtTarget.fromMap),
 });
 
-const Extension khrNodeVisibilityHintExtension =
-    Extension(KHR_NODE_VISIBILITY_HINT, <Type, ExtensionDescriptor>{
-  Node: ExtensionDescriptor(KhrNodeVisibilityHint.fromMap),
-});
+const Extension khrNodeVisibilityHintExtension = Extension(
+    KHR_NODE_VISIBILITY_HINT,
+    <Type, ExtensionDescriptor>{
+      Node: ExtensionDescriptor(KhrNodeVisibilityHint.fromMap),
+    },
+    disallowRequired: true);
 
-const Extension khrMeshPrimitiveVisibilityHintExtension =
-    Extension(KHR_MESH_PRIMITIVE_VISIBILITY_HINT, <Type, ExtensionDescriptor>{
-  MeshPrimitive: ExtensionDescriptor(KhrMeshPrimitiveVisibilityHint.fromMap),
-});
+const Extension khrMeshPrimitiveVisibilityHintExtension = Extension(
+    KHR_MESH_PRIMITIVE_VISIBILITY_HINT,
+    <Type, ExtensionDescriptor>{
+      MeshPrimitive:
+          ExtensionDescriptor(KhrMeshPrimitiveVisibilityHint.fromMap),
+    },
+    disallowRequired: true);

@@ -75,16 +75,34 @@ test('pose type and mapping bounds remain asset validity gates', async () => {
 
 test('visibility ancestor conflicts and always roles are valid metadata', async () => {
   const a = asset();
-  a.nodes[0].extensions.KHR_node_visibility_hint = {role: 'third_person'};
-  a.nodes[2].extensions.KHR_node_visibility_hint = {role: 'first_person'};
-  a.meshes[0].primitives[0].extensions.KHR_mesh_primitive_visibility_hint = {role: 'always'};
+  a.nodes[0].extensions.KHR_node_visibility_hint = {roles: ['third_person']};
+  a.nodes[2].extensions.KHR_node_visibility_hint = {roles: ['first_person', 'ACME_view']};
+  a.meshes[0].primitives[0].extensions.KHR_mesh_primitive_visibility_hint = {roles: ['always']};
   assert.equal((await check(a)).issues.numErrors, 0);
+});
+
+test('legacy role, malformed roles and required visibility hints are rejected', async () => {
+  const hints = [a => a.nodes[2].extensions.KHR_node_visibility_hint,
+    a => a.meshes[0].primitives[0].extensions.KHR_mesh_primitive_visibility_hint];
+  for (const hint of hints) {
+    for (const mutate of [h => { delete h.roles; h.role = 'third_person'; },
+      h => { h.roles = 'third_person'; }, h => { h.roles = []; },
+      h => { h.roles = ['first_person', 'first_person']; }, h => { h.roles = ['']; }]) {
+      const a = asset(); mutate(hint(a));
+      assert((await check(a)).issues.numErrors > 0);
+    }
+  }
+  for (const name of ['KHR_node_visibility_hint', 'KHR_mesh_primitive_visibility_hint']) {
+    const a = asset(); a.extensionsRequired = [name];
+    const report = await check(a);
+    assert(report.issues.messages.some(m => m.code === 'PROHIBITED_EXTENSION_REQUIRED' && m.severity === 0));
+  }
 });
 
 test('blend threshold warns while custom tokens stay valid', async () => {
   const a = asset();
   entry(a).extensions.KHR_character_expression_suppression.suppressions = [
-    {target: 0, threshold: 0.4}, {target: 0, type: 'ACME_custom', amount: 0.2}
+    {target: 0, threshold: 0.4}, {target: 0, name: 'Soft', type: 'ACME_custom', amount: 0.2}
   ];
   const report = await check(a);
   assert.equal(report.issues.numErrors, 0);
