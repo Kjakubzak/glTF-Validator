@@ -70,15 +70,18 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
 - [Full list of detectable issues](ISSUES.md).
 
 The character-family implementation tracks `avatar_ext_normative` commit
-`9dc0781cebd1a24a0869aa98d2a3b902754ecd92`. It validates asset shape,
-references, concrete targets, classifier uniqueness and decoded animation data.
-It reports affected expression checks as incomplete when declared target or
-derived extensions, or referenced resources, cannot be interpreted. It does
-not evaluate drivers, mapping arbitration, suppression, host composition,
-camera selection or view-specific visibility. Nested visibility hints and
-shared targets across expression entries are valid. Mapping uses the sole
-`expressionSetMappings` operation: external endpoints drive native entries
-indexed by the unchanged `source` wire member.
+`314c95c571185776f8624ceb94773ce3b976ad91`, except that it does not yet check
+that native expression names are unique. It validates asset shape, references,
+concrete targets, classifier uniqueness and decoded animation data. It reports
+affected expression checks as incomplete when declared target or derived
+extensions, or referenced resources, cannot be interpreted. It does not
+evaluate drivers, mapping arbitration, suppression, host composition, camera
+selection or view-specific visibility. Visibility hints carry a required
+`roles` array and, like camera hints, must not be listed in
+`extensionsRequired`. Nested visibility hints and shared targets across
+expression entries are valid. Mapping uses the sole `expressionSetMappings`
+operation: external endpoints drive native entries indexed by the unchanged
+`source` wire member.
 
 
 ## Usage

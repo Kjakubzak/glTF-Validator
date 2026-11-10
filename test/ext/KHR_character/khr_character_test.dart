@@ -94,6 +94,24 @@ Future<void> main() async {
     return accessors.length - 1;
   }
 
+  Future<List<IssueType>> issueTypes(Map<String, Object> map) async =>
+      (await readMap(map)).context.issues.map((issue) => issue.type).toList();
+
+  Map<String, Object> nodeVisibilityHint(Map<String, Object> map) {
+    final nodes = map['nodes'] as List<Object>;
+    final extensions =
+        (nodes[2] as Map<String, Object>)['extensions'] as Map<String, Object>;
+    return extensions[KHR_NODE_VISIBILITY_HINT] as Map<String, Object>;
+  }
+
+  Map<String, Object> primitiveVisibilityHint(Map<String, Object> map) {
+    final mesh = (map['meshes'] as List<Object>)[0] as Map<String, Object>;
+    final primitive =
+        (mesh['primitives'] as List<Object>)[0] as Map<String, Object>;
+    final ext = primitive['extensions'] as Map<String, Object>;
+    return ext[KHR_MESH_PRIMITIVE_VISIBILITY_HINT] as Map<String, Object>;
+  }
+
   test('complete character family has no extension support diagnostics',
       () async {
     final reader = GltfJsonReader(File(path).openRead());
@@ -125,6 +143,7 @@ Future<void> main() async {
     final mask = entry.extensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
         as KhrCharacterExpressionSuppression;
     expect(mask.suppressions[0].target, same(entry));
+    expect(mask.suppressions[0].name, 'Soft block');
     final mapping = result.gltf.extensions[KHR_CHARACTER_EXPRESSION_MAPPING]
         as KhrCharacterExpressionMapping;
     expect(mapping.expressionSetMappings[expressionSet]['Smile'][0].source,
@@ -144,6 +163,9 @@ Future<void> main() async {
         isA<KhrNodeLookAtTarget>());
     expect(result.gltf.nodes[2].extensions[KHR_NODE_VISIBILITY_HINT],
         isA<KhrNodeVisibilityHint>());
+    final nodeHint = result.gltf.nodes[2].extensions[KHR_NODE_VISIBILITY_HINT]
+        as KhrNodeVisibilityHint;
+    expect(nodeHint.roles, <String>['third_person', 'CUSTOM_view']);
     expect(
         result.gltf.meshes[0].primitives[0]
             .extensions[KHR_MESH_PRIMITIVE_VISIBILITY_HINT],
@@ -211,19 +233,64 @@ Future<void> main() async {
         contains(SemanticError.prohibitedExtensionRequired));
   });
 
-  test('marker and visibility hints may be required', () async {
+  test('look-at markers may be required', () async {
     final map = await loadMap();
-    map['extensionsRequired'] = <Object>[
-      KHR_NODE_LOOKAT_TARGET,
-      KHR_NODE_VISIBILITY_HINT,
-      KHR_MESH_PRIMITIVE_VISIBILITY_HINT
-    ];
+    map['extensionsRequired'] = <Object>[KHR_NODE_LOOKAT_TARGET];
     final node = (map['nodes'] as List<Object>)[1] as Map<String, Object>;
     (node['extensions'] as Map<String, Object>)[KHR_NODE_LOOKAT_TARGET] =
         <String, Object>{};
 
     final reader = await readMap(map);
     expect(reader.context.errors, isEmpty);
+  });
+
+  test('visibility hints cannot be required', () async {
+    final node = await loadMap();
+    node['extensionsRequired'] = <Object>[KHR_NODE_VISIBILITY_HINT];
+    expect(await issueTypes(node),
+        contains(SemanticError.prohibitedExtensionRequired));
+
+    final primitive = await loadMap();
+    primitive['extensionsRequired'] = <Object>[
+      KHR_MESH_PRIMITIVE_VISIBILITY_HINT
+    ];
+    expect(await issueTypes(primitive),
+        contains(SemanticError.prohibitedExtensionRequired));
+  });
+
+  test('visibility hints require a roles array of distinct strings', () async {
+    final hints = [nodeVisibilityHint, primitiveVisibilityHint];
+    for (final hint in hints) {
+      final legacy = await loadMap();
+      hint(legacy).remove('roles');
+      hint(legacy)['role'] = 'third_person';
+      final legacyIssues = await issueTypes(legacy);
+      expect(legacyIssues, contains(SchemaError.undefinedProperty));
+      expect(legacyIssues, contains(SchemaError.unexpectedProperty));
+
+      final string = await loadMap();
+      hint(string)['roles'] = 'third_person';
+      expect(await issueTypes(string), contains(SchemaError.typeMismatch));
+
+      final empty = await loadMap();
+      hint(empty)['roles'] = <Object>[];
+      expect(await issueTypes(empty), contains(SchemaError.emptyEntity));
+
+      final duplicate = await loadMap();
+      hint(duplicate)['roles'] = <Object>['first_person', 'first_person'];
+      expect(await issueTypes(duplicate),
+          contains(SchemaError.arrayDuplicateElements));
+
+      final number = await loadMap();
+      hint(number)['roles'] = <Object>[1];
+      expect(await issueTypes(number), contains(SchemaError.arrayTypeMismatch));
+
+      final valid = await loadMap();
+      hint(valid)['roles'] = <Object>['third_person', 'always', 'ACME_view'];
+      final validReader = await readMap(valid);
+      expect(validReader.context.errors, isEmpty);
+      expect(validReader.context.warnings, isEmpty);
+    }
   });
 
   test('hint roles, labels, and advisory text are nonempty', () async {
@@ -241,7 +308,7 @@ Future<void> main() async {
     final visibilityExtensions =
         (nodes[2] as Map<String, Object>)['extensions'] as Map<String, Object>;
     (visibilityExtensions[KHR_NODE_VISIBILITY_HINT] as Map<String, Object>)
-      ..['role'] = ''
+      ..['roles'] = <Object>['']
       ..['label'] = '';
     final mesh = (map['meshes'] as List<Object>)[0] as Map<String, Object>;
     final primitive =
@@ -249,7 +316,7 @@ Future<void> main() async {
     final primitiveExtensions = primitive['extensions'] as Map<String, Object>;
     (primitiveExtensions[KHR_MESH_PRIMITIVE_VISIBILITY_HINT]
         as Map<String, Object>)
-      ..['role'] = ''
+      ..['roles'] = <Object>['']
       ..['label'] = '';
 
     final reader = await readMap(map);
@@ -668,6 +735,31 @@ Future<void> main() async {
         reader.context.issues
             .where((issue) => issue.type == SchemaError.patternMismatch),
         hasLength(1));
+  });
+
+  test('suppression names are optional, independent and string-valued',
+      () async {
+    final map = await loadMap();
+    final extensions = map['extensions'] as Map<String, Object>;
+    final expressionRoot =
+        extensions[KHR_CHARACTER_EXPRESSION] as Map<String, Object>;
+    final expressions = expressionRoot['expressions'] as List<Object>;
+    final entry = expressions[0] as Map<String, Object>;
+    final entryExtensions = entry['extensions'] as Map<String, Object>;
+    final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
+        as Map<String, Object>;
+    final masks = mask['suppressions'] as List<Object>;
+    (masks[0] as Map<String, Object>)..['name'] = 'not the target name';
+    final reader = await readMap(map);
+    expect(reader.context.errors, isEmpty);
+    expect(reader.context.warnings, isEmpty);
+
+    (masks[0] as Map<String, Object>)..remove('name');
+    final unnamedReader = await readMap(map);
+    expect(unnamedReader.context.errors, isEmpty);
+
+    (masks[0] as Map<String, Object>)..['name'] = 5;
+    expect(await issueTypes(map), contains(SchemaError.typeMismatch));
   });
 
   test('suppression arrays are required and custom companions must be declared',
