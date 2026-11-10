@@ -556,18 +556,18 @@ Future<void> main() async {
       final nodes = map['nodes'] as List<Object>;
       ((nodes[0] as Map<String, Object>)['extensions']
           as Map<String, Object>)[KHR_NODE_VISIBILITY_HINT] = <String, Object>{
-        'role': ancestor
+        'roles': <Object>[ancestor]
       };
       ((nodes[2] as Map<String, Object>)['extensions']
           as Map<String, Object>)[KHR_NODE_VISIBILITY_HINT] = <String, Object>{
-        'role': 'first_person'
+        'roles': <Object>['first_person', 'CUSTOM_hidden']
       };
       final primitive = (((map['meshes'] as List<Object>)[0]
               as Map<String, Object>)['primitives'] as List<Object>)[0]
           as Map<String, Object>;
       (primitive['extensions']
               as Map<String, Object>)[KHR_MESH_PRIMITIVE_VISIBILITY_HINT] =
-          <String, Object>{'role': 'always'};
+          <String, Object>{'roles': <Object>['always', 'third_person']};
       (map['extensionsUsed'] as List<Object>).add(KHR_NODE_VISIBILITY);
       ((nodes[2] as Map<String, Object>)['extensions']
           as Map<String, Object>)[KHR_NODE_VISIBILITY] = <String, Object>{

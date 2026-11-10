@@ -46,6 +46,7 @@
               "suppressions": [
                 {
                   "target": 0,
+                  "name": "Soft block",
                   "type": "CUSTOM_soft_block",
                   "amount": 0.5,
                   "threshold": 0.25
@@ -296,7 +297,9 @@
           "material": 0,
           "extensions": {
             "KHR_mesh_primitive_visibility_hint": {
-              "role": "CUSTOM_primitive_view",
+              "roles": [
+                "CUSTOM_primitive_view"
+              ],
               "label": "Custom primitive view"
             }
           },
@@ -336,7 +339,10 @@
       ],
       "extensions": {
         "KHR_node_visibility_hint": {
-          "role": "CUSTOM_view",
+          "roles": [
+            "third_person",
+            "CUSTOM_view"
+          ],
           "label": "Custom view"
         }
       }
