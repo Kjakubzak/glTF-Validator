@@ -640,7 +640,9 @@ Future<void> main() async {
           as Map<String, Object>;
       (primitive['extensions']
               as Map<String, Object>)[KHR_MESH_PRIMITIVE_VISIBILITY_HINT] =
-          <String, Object>{'roles': <Object>['always', 'third_person']};
+          <String, Object>{
+        'roles': <Object>['always', 'third_person']
+      };
       (map['extensionsUsed'] as List<Object>).add(KHR_NODE_VISIBILITY);
       ((nodes[2] as Map<String, Object>)['extensions']
           as Map<String, Object>)[KHR_NODE_VISIBILITY] = <String, Object>{

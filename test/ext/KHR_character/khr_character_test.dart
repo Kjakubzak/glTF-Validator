@@ -728,7 +728,7 @@ Future<void> main() async {
     final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
         as Map<String, Object>;
     final masks = mask['suppressions'] as List<Object>;
-    (masks[0] as Map<String, Object>)..['type'] = 'ACME_InvalidSuffix';
+    (masks[0] as Map<String, Object>)['type'] = 'ACME_InvalidSuffix';
 
     final reader = await readMap(map);
     expect(
@@ -749,16 +749,16 @@ Future<void> main() async {
     final mask = entryExtensions[KHR_CHARACTER_EXPRESSION_SUPPRESSION]
         as Map<String, Object>;
     final masks = mask['suppressions'] as List<Object>;
-    (masks[0] as Map<String, Object>)..['name'] = 'not the target name';
+    (masks[0] as Map<String, Object>)['name'] = 'not the target name';
     final reader = await readMap(map);
     expect(reader.context.errors, isEmpty);
     expect(reader.context.warnings, isEmpty);
 
-    (masks[0] as Map<String, Object>)..remove('name');
+    (masks[0] as Map<String, Object>).remove('name');
     final unnamedReader = await readMap(map);
     expect(unnamedReader.context.errors, isEmpty);
 
-    (masks[0] as Map<String, Object>)..['name'] = 5;
+    (masks[0] as Map<String, Object>)['name'] = 5;
     expect(await issueTypes(map), contains(SchemaError.typeMismatch));
   });
 
