@@ -69,16 +69,19 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
   - KHR_xmp_json_ld
 - [Full list of detectable issues](ISSUES.md).
 
-The character-family implementation tracks `avatar_ext_normative` commit
-`9dc0781cebd1a24a0869aa98d2a3b902754ecd92`. It validates asset shape,
-references, concrete targets, classifier uniqueness and decoded animation data.
-It reports affected expression checks as incomplete when declared target or
-derived extensions, or referenced resources, cannot be interpreted. It does
-not evaluate drivers, mapping arbitration, suppression, host composition,
-camera selection or view-specific visibility. Nested visibility hints and
-shared targets across expression entries are valid. Mapping uses the sole
-`expressionSetMappings` operation: external endpoints drive native entries
-indexed by the unchanged `source` wire member.
+The character-family implementation tracks the extension specification in
+[KhronosGroup/glTF#2512](https://github.com/KhronosGroup/glTF/pull/2512) at
+commit `7ab5368a87d1d303dff33ec5f9aad42752e84c78`. It validates asset shape,
+references, concrete targets, classifier uniqueness, native expression name
+uniqueness and decoded animation data. It reports affected expression checks as incomplete when
+declared target or derived extensions, or referenced resources, cannot be
+interpreted. It does not evaluate drivers, mapping arbitration, suppression,
+host composition, camera selection or view-specific visibility. Visibility
+hints carry a required `roles` array and, like camera hints, must not be listed
+in `extensionsRequired`. Nested visibility hints and shared targets across
+expression entries are valid. Mapping uses the sole `expressionSetMappings`
+operation: external endpoints drive native entries indexed by the unchanged
+`source` wire member.
 
 
 ## Usage
