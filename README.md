@@ -71,10 +71,9 @@ NuGet package [Third-party contribution]: https://www.nuget.org/packages/GltfVal
 
 The character-family implementation tracks the extension specification in
 [KhronosGroup/glTF#2512](https://github.com/KhronosGroup/glTF/pull/2512) at
-commit `7ab5368a87d1d303dff33ec5f9aad42752e84c78` (same extension payload as
-normative commit `314c95c5`). It validates asset shape, references, concrete
-targets, classifier uniqueness, native expression name uniqueness and decoded
-animation data. It reports affected expression checks as incomplete when
+commit `7ab5368a87d1d303dff33ec5f9aad42752e84c78`. It validates asset shape,
+references, concrete targets, classifier uniqueness, native expression name
+uniqueness and decoded animation data. It reports affected expression checks as incomplete when
 declared target or derived extensions, or referenced resources, cannot be
 interpreted. It does not evaluate drivers, mapping arbitration, suppression,
 host composition, camera selection or view-specific visibility. Visibility

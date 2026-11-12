@@ -285,6 +285,14 @@ Future<void> main() async {
       hint(number)['roles'] = <Object>[1];
       expect(await issueTypes(number), contains(SchemaError.arrayTypeMismatch));
 
+      final nullRoles = await loadMap();
+      hint(nullRoles)['roles'] = null;
+      expect(await issueTypes(nullRoles), contains(SchemaError.typeMismatch));
+
+      final mixed = await loadMap();
+      hint(mixed)['roles'] = <Object>['first_person', 1];
+      expect(await issueTypes(mixed), contains(SchemaError.arrayTypeMismatch));
+
       final valid = await loadMap();
       hint(valid)['roles'] = <Object>['third_person', 'always', 'ACME_view'];
       final validReader = await readMap(valid);
